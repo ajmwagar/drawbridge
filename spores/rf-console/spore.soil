@@ -10,4 +10,13 @@
   (license "Apache-2.0 OR MIT")
   (summary "A receiver console for SDRs, packet radios, and broadcast tuners")
   (distribution "source")
-  (source "source/"))
+  (source "source/")
+
+  (anycast
+    (name "drawbridge")
+    (kind "rf-console")
+    (alpns ("soil/http/1"))
+    (ttl_secs 240))
+
+  (surfaces
+    (surface "console" (kind "web") (entry "web/index.html"))))
