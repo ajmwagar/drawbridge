@@ -14,7 +14,7 @@
 (defun test-device-data ()
   (let ((state (json-decode (rf/state-json))))
     (and
-      (= (length (field state :devices)) 5)
+      (= (length (field state :devices)) 3)
       (= (length (field state :presets)) 24)
       (= (length (field state :categories)) 9)
       (= (field (first (field state :devices)) :id) "hackrf")

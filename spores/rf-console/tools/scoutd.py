@@ -22,8 +22,17 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from scout_core import TinySA, find_port, presets_from_page
+
+try:
+    from sdr_core import SDRManager
+except Exception as exc:  # SoapySDR/numpy are optional for a scout-only host
+    SDRManager = None
+    SDR_IMPORT_ERROR = exc
+else:
+    SDR_IMPORT_ERROR = None
 
 UTC = dt.timezone.utc
 
@@ -113,38 +122,115 @@ class Scout:
 
 class Handler(BaseHTTPRequestHandler):
     scout: Scout
+    sdrs: object | None = None
+    protocol_version = "HTTP/1.1"
 
-    def do_GET(self) -> None:
-        path = self.path.split("?", 1)[0]
-        if path == "/scout.json":
-            body = json.dumps(self.scout.snapshot()).encode()
-            content_type = "application/json; charset=utf-8"
-        elif path in ("/", "/healthz"):
-            state = self.scout.snapshot()
-            body = json.dumps(
-                {"ok": state["status"] == "live", "status": state["status"], "serial": state["serial"]}
-            ).encode()
-            content_type = "application/json; charset=utf-8"
-        else:
-            self.send_error(404)
-            return
-        self.send_response(200)
-        self.send_header("Content-Type", content_type)
+    def send_json(self, body: object, status: int = 200) -> None:
+        payload = json.dumps(body).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(body)
+        self.wfile.write(payload)
+
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path == "/scout.json":
+            self.send_json(self.scout.snapshot())
+        elif path in ("/", "/healthz"):
+            state = self.scout.snapshot()
+            self.send_json(
+                {"ok": state["status"] == "live", "status": state["status"], "serial": state["serial"]}
+            )
+        elif path == "/sdr/devices":
+            if self.sdrs is None:
+                self.send_json({"error": f"SoapySDR unavailable: {SDR_IMPORT_ERROR}"}, 503)
+                return
+            found = self.sdrs.devices()
+            self.send_json(
+                {
+                    "source": "soapy",
+                    "devices": found,
+                    "error": None if found else "no SoapySDR devices found",
+                }
+            )
+        elif path == "/sdr/frame":
+            self.frame_sdr(parse_qs(parsed.query))
+        elif path == "/sdr/stream":
+            self.stream_sdr(parse_qs(parsed.query))
+        else:
+            self.send_error(404)
+
+    def _sdr_request(self, query: dict[str, list[str]]):
+        if self.sdrs is None:
+            return None, None, f"SoapySDR unavailable: {SDR_IMPORT_ERROR}"
+        device = (query.get("device") or [""])[0].strip().lower()
+        if device in ("adsb", "ais"):
+            device = "rtl"
+        if not device:
+            return None, None, "missing device"
+        try:
+            config = {
+                "freq": float((query.get("freq") or ["100000000"])[0]),
+                "span": max(1e5, float((query.get("span") or ["2000000"])[0])),
+                "bins": max(128, min(2048, int((query.get("bins") or ["512"])[0]))),
+                "bw": max(0.0, float((query.get("bw") or ["0"])[0])),
+                "gain": float((query.get("gain") or ["20"])[0]),
+            }
+        except ValueError:
+            return None, None, "invalid stream parameters"
+        worker = self.sdrs.stream(device, config)
+        if worker is None:
+            return None, None, f"device not found: {device}"
+        return worker, config, None
+
+    def frame_sdr(self, query: dict[str, list[str]]) -> None:
+        worker, _config, error = self._sdr_request(query)
+        if error:
+            self.send_json({"error": error}, 404 if "not found" in error else 400)
+            return
+        frame, _version = worker.wait(0, timeout=4.0)
+        self.send_json(frame or {"error": "no frame yet"})
+
+    def stream_sdr(self, query: dict[str, list[str]]) -> None:
+        worker, _config, error = self._sdr_request(query)
+        if error:
+            self.send_json({"error": error}, 404 if "not found" in error else 400)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        version = 0
+        try:
+            while not worker.stop_event.is_set():
+                frame, version = worker.wait(version, timeout=2.0)
+                if frame is None:
+                    self.wfile.write(b": waiting\n\n")
+                else:
+                    self.wfile.write(b"data: " + json.dumps(frame).encode() + b"\n\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def log_message(self, fmt: str, *args) -> None:
+        if "/sdr/frame" in self.path:
+            return
         print(f"{self.address_string()} {fmt % args}", flush=True)
 
 
@@ -164,6 +250,7 @@ def main() -> None:
         host, port_text = "127.0.0.1", args.listen
     scout = Scout(args.page, args.port, args.antenna, args.points, args.retry)
     Handler.scout = scout
+    Handler.sdrs = SDRManager() if SDRManager is not None else None
     thread = threading.Thread(target=scout.run, name="scout", daemon=True)
     thread.start()
     server = ThreadingHTTPServer((host, int(port_text)), Handler)

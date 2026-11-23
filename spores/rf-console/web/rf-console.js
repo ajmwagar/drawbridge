@@ -35,9 +35,16 @@ const SCOUT_CONFIG = DATA.scout || {};
 const SCOUT_URL = SCOUT_CONFIG.url || "https://rfscout.myc/scout.json";
 const SCOUT_FALLBACK = SCOUT_CONFIG.fallback || "scout.json";
 const SCOUT_INTERVAL = Number(SCOUT_CONFIG["interval-ms"] || SCOUT_CONFIG.interval_ms || 15000);
+const SDR_CONFIG = DATA.sdr || {};
+const SDR_URL = SDR_CONFIG.url || "https://rfscout.myc/sdr";
 let SCOUT = null;
 let SCOUT_LIVE = false;
 let SCOUT_LINK = "waiting";
+let SDR_LIVE = false;
+let SDR_STREAM = null;
+let SDR_KEY = "";
+let liveSpectrum = null;
+let liveSpectrumAt = 0;
 
 const runtime = new Map(
   DEVICES.map((device) => [
@@ -100,6 +107,7 @@ const el = {
   bandmapNext: $("#bandmap-next"),
   recordToggle: $("#record-toggle"),
   recordNote: $("#record-note"),
+  feedBadge: $("#feed-badge"),
   statusLabel: $("#status-label"),
   statusDevice: $("#status-device"),
   statusSession: $("#status-session"),
@@ -396,6 +404,8 @@ function closeBandmap() {
 function resetSpectrumHistory() {
   peakHoldValues.fill(-130);
   waterfallRows.length = 0;
+  liveSpectrum = null;
+  liveSpectrumAt = 0;
 }
 
 function syncControls() {
@@ -415,7 +425,7 @@ function syncControls() {
   setSlider(el.bandwidth, state.bw);
   setSlider(el.gain, state.gain);
   setSlider(el.squelch, state.squelch);
-  el.tuneNote.textContent = state.note || "Simulated receiver · drag to tune";
+  el.tuneNote.textContent = state.note || (SDR_LIVE ? "Live SoapySDR · drag to tune" : "Simulated receiver · drag to tune");
   el.rxToggle.textContent = state.running ? "Stop RX" : "Start RX";
   el.peakHold.setAttribute("aria-pressed", String(peakHoldEnabled));
   el.recordToggle.setAttribute("aria-pressed", String(state.recording));
@@ -438,6 +448,103 @@ function syncControls() {
 
   renderDevices();
   renderBandmap();
+  maybeStartSdr();
+}
+
+function setFeedBadge() {
+  if (!el.feedBadge) return;
+  el.feedBadge.textContent = SDR_LIVE
+    ? "LIVE SDR · LIVE SCOUT"
+    : "SIMULATED SPECTRUM · LIVE SCOUT";
+  el.tuneNote.textContent = SDR_LIVE
+    ? "Live SoapySDR · drag to tune"
+    : "Simulated receiver · drag to tune";
+}
+
+let SDR_GENERATION = 0;
+
+function stopSdrStream() {
+  SDR_GENERATION += 1;
+  SDR_KEY = "";
+  SDR_LIVE = false;
+  setFeedBadge();
+}
+
+function applySdrFrame(frame) {
+  if (!frame || frame.error || !Array.isArray(frame.dbm)) {
+    SDR_LIVE = false;
+    setFeedBadge();
+    return;
+  }
+  const row = Float32Array.from(frame.dbm);
+  liveSpectrum = row;
+  liveSpectrumAt = performance.now();
+  SDR_LIVE = true;
+  setFeedBadge();
+  if (Number.isFinite(frame.span_hz)) {
+    const actual = frame.span_hz / 1e6;
+    if (Math.abs(actual - settings().span) > 0.001) {
+      settings().span = actual;
+      applyLiveSpan(actual);
+    }
+  }
+  drawSpectrum(row, liveSpectrumAt);
+  updateMeter(row);
+  drawWaterfall(row);
+}
+
+function maybeStartSdr() {
+  const state = settings();
+  const backend = activeId === "hackrf" || activeId === "rtl" ? activeId : null;
+  if (!SDR_CONFIG.enabled || !backend || !state.running) {
+    if (SDR_KEY) stopSdrStream();
+    return;
+  }
+  const key = [backend, state.freq, state.span, state.bw, state.gain].join("|");
+  if (key === SDR_KEY) return;
+  stopSdrStream();
+  SDR_KEY = key;
+  const generation = SDR_GENERATION;
+  const query = new URLSearchParams({
+    device: backend,
+    freq: String(Math.round(state.freq * 1e6)),
+    span: String(Math.round(state.span * 1e6)),
+    bw: String(Math.round(state.bw * 1000)),
+    gain: String(state.gain),
+    bins: String(BINS),
+  });
+  const url = `${SDR_URL}/frame?${query.toString()}`;
+
+  const tick = async () => {
+    if (generation !== SDR_GENERATION) return;
+    try {
+      const response = await fetch(`${url}&t=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`sdr ${response.status}`);
+      applySdrFrame(await response.json());
+    } catch (_error) {
+      SDR_LIVE = false;
+      setFeedBadge();
+    }
+    if (generation === SDR_GENERATION) setTimeout(tick, 120);
+  };
+  tick();
+}
+
+function applyLiveSpan(span) {
+  const text = String(span);
+  if (![...el.span.options].some((option) => option.value === text)) {
+    const option = document.createElement("option");
+    option.value = text;
+    option.textContent = `${span.toFixed(1)} MHz`;
+    el.span.append(option);
+  }
+  el.span.value = text;
+  const state = settings();
+  el.axisA.textContent = formatAxis(state.freq - state.span / 2);
+  el.axisB.textContent = formatAxis(state.freq - state.span / 4);
+  el.axisC.textContent = formatAxis(state.freq);
+  el.axisD.textContent = formatAxis(state.freq + state.span / 4);
+  el.axisE.textContent = formatAxis(state.freq + state.span / 2);
 }
 
 function setActiveDevice(id, announce = true) {
@@ -550,6 +657,7 @@ function dbToY(value, height) {
 }
 
 function makeSpectrum(now) {
+  if (liveSpectrum && now - liveSpectrumAt < 1500) return liveSpectrum;
   const item = device();
   const state = settings();
   const row = new Float32Array(BINS);
@@ -685,7 +793,7 @@ function drawSpectrum(row, now) {
 
   ctx.font = `8px ${MONO_FONT}`;
   ctx.textAlign = "left";
-  for (const signal of item.signals) {
+  for (const signal of SDR_LIVE ? [] : item.signals) {
     if (!signal.label) continue;
     const x = freqToX(signal.freq, w);
     if (x < 10 || x > w - 10) continue;

@@ -1,16 +1,21 @@
 [Unit]
-Description=RF Console tinySA scout
+Description=RF Console tinySA + SoapySDR bridge
 After=network-online.target
 
 [Service]
+# Reset the USB devices on start; the Pi hub can leave them in a bad state
+# after a service restart. `+` runs this line as root, not as User=.
+ExecStartPre=+/bin/sh -c '/usr/bin/usbreset 1d50:6089 >/dev/null 2>&1 || true'
+ExecStartPre=+/bin/sh -c '/usr/bin/usbreset 0bda:2838 >/dev/null 2>&1 || true'
+
 # Run as the user that owns the TinySA serial device. Add that user to the
 # device's group (often dialout) or use a udev rule instead of root.
 User=radioman
 WorkingDirectory=/opt/rf-console
-ExecStart=/usr/bin/python3 /opt/rf-console/tools/scoutd.py \
+ExecStart=/usr/bin/python3 /opt/rf-console/scoutd.py \
   --listen 0.0.0.0:8798 \
   --port /dev/ttyACM1 \
-  --page /opt/rf-console/web/index.html \
+  --page /opt/rf-console/index.html \
   --antenna AR-771
 Restart=always
 RestartSec=5

@@ -193,7 +193,7 @@
     "<div class=\"bandmap-backdrop\" data-bandmap-close></div>"
     "<section class=\"bandmap-sheet\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"bandmap-title\">"
     "<header class=\"bandmap-head\"><div>"
-    "<p class=\"eyebrow\">Band map · simulated receiver</p>"
+    "<p class=\"eyebrow\">Band map · live receiver</p>"
     "<h2 id=\"bandmap-title\">What do you want to hear?</h2>"
     "<p class=\"bandmap-lede\">Pick a place to start. Each card tunes the selected receiver and explains what should be there before you know the numbers.</p>"
     "</div><button type=\"button\" class=\"bandmap-close\" id=\"bandmap-close\">Close</button></header>"
@@ -232,7 +232,11 @@
         (list
           (list :url "https://rfscout.myc/scout.json")
           (list :fallback "scout.json")
-          (list :interval-ms 15000))))))
+          (list :interval-ms 15000)))
+      (list :sdr
+        (list
+          (list :url "https://rfscout.myc/sdr")
+          (list :enabled #t))))))
 
 (defun rf/page ()
   (let ((device (first (rf/devices)))
@@ -253,13 +257,13 @@
       "<span class=\"brand-name\">RADIOMAN</span><span class=\"brand-sub\">RF DECK</span></div>\n"
       "<div class=\"topbar-status\">"
       "<span class=\"status-item\"><span class=\"status-dot is-live\" aria-hidden=\"true\"></span>"
-      "<span id=\"device-count\">5 devices</span></span>"
-      "<span class=\"status-item sim-badge\">SIMULATED SPECTRUM · LIVE SCOUT</span>"
+      "<span id=\"device-count\">3 devices</span></span>"
+      "<span class=\"status-item sim-badge\" id=\"feed-badge\">SIMULATED SPECTRUM · LIVE SCOUT</span>"
       "<time id=\"utc-clock\" class=\"clock\">--:--:-- UTC</time></div>\n"
       "</header>\n"
       "<main class=\"console\">\n"
       "<aside class=\"rail\" aria-label=\"Receivers\">\n"
-      "<div class=\"rail-head\"><h2>Receivers</h2><span class=\"count\" id=\"receiver-count\">05</span></div>\n"
+      "<div class=\"rail-head\"><h2>Receivers</h2><span class=\"count\" id=\"receiver-count\">03</span></div>\n"
       "<div class=\"device-list\" id=\"device-list\" role=\"listbox\" aria-label=\"Select a receiver\">"
       (rf/device-rows (rf/devices) (field device :id))
       "</div>\n"
@@ -282,7 +286,7 @@
       "<button type=\"button\" class=\"toggle\" id=\"peak-hold\" aria-pressed=\"true\">Peak hold</button>"
       "<button type=\"button\" class=\"primary\" id=\"rx-toggle\">Stop RX</button>"
       "</div></div>\n"
-      "<div class=\"scope-card\"><canvas id=\"spectrum\" aria-label=\"Simulated spectrum\"></canvas>"
+      "<div class=\"scope-card\"><canvas id=\"spectrum\" aria-label=\"Spectrum\"></canvas>"
       "<span class=\"scope-corner scope-corner-a\">dBFS</span>"
       "<span class=\"scope-corner scope-corner-b\" id=\"scope-center\">"
       (rf/fill (field initial :freq-label)) " MHz</span></div>\n"
@@ -290,7 +294,7 @@
       "<span id=\"axis-a\">161.55</span><span id=\"axis-b\">162.05</span>"
       "<span id=\"axis-c\">162.55</span><span id=\"axis-d\">163.05</span>"
       "<span id=\"axis-e\">163.55</span></div>\n"
-      "<div class=\"waterfall-wrap\"><canvas id=\"waterfall\" aria-label=\"Simulated waterfall\"></canvas>"
+      "<div class=\"waterfall-wrap\"><canvas id=\"waterfall\" aria-label=\"Waterfall\"></canvas>"
       "<div class=\"waterfall-scale\" aria-hidden=\"true\"><span>−40</span><span>−70</span><span>−100</span></div></div>\n"
       "<div class=\"scope-foot\"><span>FFT <b>2048</b></span><span>BINS <b>512 visible</b></span>"
       "<span>RATE <b id=\"foot-rate\">20 fps</b></span><span>DROPPED <b>0</b></span>"

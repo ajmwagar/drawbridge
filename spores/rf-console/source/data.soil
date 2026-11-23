@@ -31,7 +31,7 @@
       (list :name "HackRF One")
       (list :code "hackrf/78d0…")
       (list :kind "sdr")
-      (list :meta "wideband · 2.0 MS/s")
+      (list :meta "1–20 MS/s · 0–7250 MHz")
       (list :noise -104)
       (list :signals
         (list
@@ -41,29 +41,18 @@
           (rf/signal 144.39 0.012 -58 "APRS")))
       (list :initial (rf/initial 162.55 "162.550" "NFM" 12.5 22 -92 2 #t #f)))
     (list
-      (list :id "adsb")
-      (list :name "RTL-SDR V4")
+      (list :id "rtl")
+      (list :name "RTL-SDR Blog V4")
       (list :code "rtl/00000001")
       (list :kind "sdr")
-      (list :meta "1090 MHz · 2.4 MS/s")
+      (list :meta "24–1764 MHz · 2.4 MS/s")
       (list :noise -102)
       (list :signals
         (list
           (rf/signal 1090 0.08 -48 "MODE-S")
-          (rf/signal 1090.46 0.12 -72 "")))
-      (list :initial (rf/initial 1090 "1090.000" "AM" 200 38.6 -80 5 #t #f)))
-    (list
-      (list :id "ais")
-      (list :name "RTL-SDR V3")
-      (list :code "rtl/00000002")
-      (list :kind "sdr")
-      (list :meta "marine · 2.4 MS/s")
-      (list :noise -106)
-      (list :signals
-        (list
           (rf/signal 161.975 0.025 -57 "AIS 1")
           (rf/signal 162.025 0.025 -64 "AIS 2")))
-      (list :initial (rf/initial 161.975 "161.975" "NFM" 25 32 -96 0.5 #f #f)))
+      (list :initial (rf/initial 1090 "1090.000" "AM" 200 38.6 -80 5 #t #f)))
     (list
       (list :id "meshcore")
       (list :name "MeshCore")
@@ -76,27 +65,14 @@
           (rf/signal 915 0.5 -62 "LORA")
           (rf/signal 915.52 0.35 -73 "")
           (rf/signal 914.5 0.3 -78 "")))
-      (list :initial (rf/initial 915 "915.000" "NFM" 125 18 -100 2 #t #f)))
-    (list
-      (list :id "hdhr")
-      (list :name "HDHomeRun")
-      (list :code "hdhr/10626E55")
-      (list :kind "atsc")
-      (list :meta "broadcast · 2 tuners")
-      (list :noise -101)
-      (list :signals
-        (list
-          (rf/signal 533 5.8 -57 "ATSC 533")
-          (rf/signal 539 5.8 -64 "")
-          (rf/signal 527 5.8 -70 "")))
-      (list :initial (rf/initial 533 "533.000" "AM" 200 0 -84 10 #f #f)))))
+      (list :initial (rf/initial 915 "915.000" "NFM" 125 18 -100 2 #t #f)))))
 
 (defun rf/events ()
   (list
     (list (list :time "14:02:11") (list :text "NOAA 7 carrier acquired on HackRF One"))
     (list (list :time "14:01:48") (list :text "MeshCore advert heard · 3 hops"))
     (list (list :time "13:59:22") (list :text "ADS-B track 0x4CA2B1 resolved"))
-    (list (list :time "13:57:05") (list :text "RTL-SDR V3 returned to idle"))))
+    (list (list :time "13:57:05") (list :text "RTL-SDR Blog V4 returned to idle"))))
 
 (defun rf/modes ()
   (list "AM" "NFM" "WFM" "USB" "LSB" "CW"))
