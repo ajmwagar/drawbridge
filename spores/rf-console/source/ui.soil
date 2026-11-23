@@ -30,6 +30,16 @@
     (else
      "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 12h16\"/><path d=\"M12 4v16\"/></svg>")))
 
+(defun rf/device-name-in (devices id)
+  (if (nil? devices)
+      id
+      (if (= (field (first devices) :id) id)
+          (field (first devices) :name)
+          (rf/device-name-in (rest devices) id))))
+
+(defun rf/device-name (id)
+  (rf/device-name-in (rf/devices) id))
+
 (defun rf/state-class (device)
   (if (field (field device :initial) :running) "is-rx" "is-idle"))
 
@@ -131,20 +141,25 @@
 
 (defun rf/band-card (preset)
   (str
-    "<article class=\"band-card\" data-category=\"" (attr-escape (field preset :category))
-    "\" data-regions=\"" (attr-escape (string-join (field preset :regions) ",")) "\">"
-    "<div class=\"band-card-head\"><div>"
-    "<h4>" (rf/fill (field preset :name)) "</h4>"
-    "<p class=\"band-card-freq\">" (rf/fill (field preset :freq-label)) " MHz · "
-    (rf/fill (field preset :mode)) " · " (rf/fill (field preset :bw)) " kHz</p></div>"
-    "<button type=\"button\" class=\"band-card-tune\" data-scenario=\""
-    (attr-escape (field preset :name)) "\">Tune</button></div>"
-    "<p class=\"band-card-copy\">" (rf/fill (field preset :copy)) "</p>"
-    "<p class=\"band-card-hear\"><span>Listen for</span>"
-    (rf/fill (field preset :hear)) "</p>"
-    "<div class=\"band-card-foot\"><span>" (rf/fill (field preset :tag)) "</span>"
-    "<span>" (rf/fill (rf/region-labels (field preset :regions))) "</span></div>"
-    "</article>"))
+    "<button type=\"button\" class=\"band-card\" data-category=\""
+    (attr-escape (field preset :category))
+    "\" data-regions=\"" (attr-escape (string-join (field preset :regions) ","))
+    "\" data-scenario=\"" (attr-escape (field preset :name)) "\">"
+    "<span class=\"band-card-head\"><span>"
+    "<span class=\"band-card-name\">" (rf/fill (field preset :name)) "</span>"
+    "<span class=\"band-card-freq\">" (rf/fill (field preset :freq-label)) " MHz · "
+    (rf/fill (field preset :mode)) " · " (rf/fill (field preset :bw)) " kHz</span></span>"
+    "<span class=\"band-card-go\" aria-hidden=\"true\">Tune →</span></span>"
+    "<span class=\"band-card-copy\">" (rf/fill (field preset :copy)) "</span>"
+    "<span class=\"band-card-hear\"><span>Listen for</span>"
+    (rf/fill (field preset :hear)) "</span>"
+    "<span class=\"band-card-rig\">"
+    "<span><span class=\"band-card-label\">Radio</span>" (rf/fill (rf/device-name (field preset :device))) "</span>"
+    "<span><span class=\"band-card-label\">Antenna</span>" (rf/fill (field preset :antenna)) "</span>"
+    "</span>"
+    "<span class=\"band-card-foot\"><span>" (rf/fill (field preset :tag)) "</span>"
+    "<span>" (rf/fill (rf/region-labels (field preset :regions))) "</span></span>"
+    "</button>"))
 
 (defun rf/band-cards (presets)
   (string-join (map 'rf/band-card presets) ""))

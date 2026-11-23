@@ -227,8 +227,7 @@ function renderBandmap() {
   });
 
   el.bandmapContent.querySelectorAll(".band-card").forEach((card) => {
-    const button = card.querySelector("[data-scenario]");
-    const preset = PRESETS.find((item) => item.name === button?.dataset.scenario);
+    const preset = PRESETS.find((item) => item.name === card.dataset.scenario);
     card.hidden = folders || !preset || !names.has(preset.name);
     card.classList.toggle(
       "is-current",
