@@ -20,6 +20,7 @@ default = "native"
 surfaces = ["native"]
 
 [grants]
+"ajmwagar:drawbridge" = "provider import: poll, send, deliver and bind through the MeshCore host"
 # `ajmwagar:drawbridge` is a provider import, not a host grant: the MeshCore
 # plugin package supplies it. Loam composes it from the provider root.
 "wasi:clocks" = "the loop's poll interval; the host owns the network clock"
@@ -27,3 +28,8 @@ surfaces = ["native"]
 [denied]
 "soil:http" = ["the native host owns the sidecar and Matrix transport"]
 "wasi:filesystem" = ["credentials and the database stay in the host"]
+
+[[commands]]
+name = "meshcore-bridge"
+module = "module.wasm"
+summary = "Run the MeshCore bridge loop"

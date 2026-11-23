@@ -9,7 +9,7 @@ wit_bindgen::generate!({
     generate_all,
 });
 
-use crate::ajmwagar::drawbridge::types::{
+use crate::exports::ajmwagar::drawbridge::types::{
     Binding, Conversation, ConversationKind, Event, Health, MatrixEvent, Message, Page, SendAck,
     Transaction,
 };

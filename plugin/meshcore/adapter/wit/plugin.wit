@@ -3,6 +3,7 @@
 package ajmwagar:drawbridge-adapter@0.1.0;
 
 world plugin {
+  export ajmwagar:drawbridge/types@0.1.0;
   export ajmwagar:drawbridge/bridge@0.1.0;
   import loam:plugin/ipc@0.1.0;
 }

@@ -12,6 +12,7 @@ wit_bindgen::generate!({
 });
 
 use crate::ajmwagar::drawbridge::bridge;
+use crate::exports::wasi::cli::run::Guest as CliGuest;
 use crate::ajmwagar::drawbridge::types::{
     Conversation, ConversationKind, Event, Health, Message, Transaction,
 };
@@ -34,6 +35,18 @@ export!(Component);
 impl Guest for Component {
     fn run(args: Vec<String>) -> Result<String, String> {
         run_loop(&args)
+    }
+}
+
+impl CliGuest for Component {
+    fn run() -> Result<(), ()> {
+        let mut args = crate::wasi::cli::environment::get_arguments();
+        if !args.is_empty() {
+            args.remove(0);
+        }
+        run_loop(&args).map(|_| ()).map_err(|error| {
+            eprintln!("meshcore-bridge: {error}");
+        })
     }
 }
 
