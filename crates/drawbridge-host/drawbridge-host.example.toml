@@ -1,0 +1,7 @@
+database = "data/drawbridge-host.db"
+encryption_key_env = "DRAWBRIDGE_HOST_KEY"
+tenant = "personal"
+
+[meshcore]
+url = "http://127.0.0.1:8787"
+token_env = "MESHCORE_TOKEN"
