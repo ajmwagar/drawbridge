@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>RF Deck · Radioman console</title>
-<link rel="stylesheet" href="rf-console.css?v=scout2">
-<script type="module" src="rf-console.js?v=scout2"></script>
+<link rel="stylesheet" href="rf-console.css?v=audio1">
+<script type="module" src="rf-console.js?v=audio2"></script>
 </head>
 <body>
 <div class="app">
@@ -36,7 +36,7 @@
 <section class="control-group"><div class="group-head"><h2>Gain</h2><output class="group-value" id="gain-value">22 dB</output></div><div class="slider"><span class="slider-rail"><span class="slider-fill"></span></span><span class="slider-thumb" aria-hidden="true"></span><input type="range" id="gain" min="0" max="40" step="0.1" value="22" aria-label="Gain"></div><div class="range-labels"><span>0</span><span>40</span></div></section>
 <section class="control-group"><div class="group-head"><h2>Squelch</h2><output class="group-value" id="squelch-value">−92 dBFS</output></div><div class="slider"><span class="slider-rail"><span class="slider-fill"></span></span><span class="slider-thumb" aria-hidden="true"></span><input type="range" id="squelch" min="-120" max="-20" step="1" value="-92" aria-label="Squelch"></div><div class="range-labels"><span>−120</span><span>−20</span></div></section>
 <section class="meter-block" aria-label="Signal level"><div class="group-head"><h2>Signal</h2><span class="group-value" id="signal-value">−41 dBFS</span></div><div class="meter" aria-hidden="true"><span class="meter-fill" id="meter-fill"></span><span class="meter-mark" style="left: 68%"></span></div><div class="meter-foot"><span>NOISE −104</span><span>PEAK −41</span><span>SNR 63</span></div></section>
-<section class="record-block"><div><p class="eyebrow">Capture</p><p class="record-note" id="record-note">No active recording</p></div><button type="button" class="record" id="record-toggle" aria-pressed="false">Record</button></section>
+<section class="record-block"><div><p class="eyebrow">Capture</p><p class="record-note" id="record-note">No active recording</p></div><div class="record-actions"><button type="button" class="toggle" id="monitor-toggle" aria-pressed="false">Monitor</button><button type="button" class="record" id="record-toggle" aria-pressed="false">Record</button></div></section>
 </aside>
 </main>
 <footer class="statusbar"><span><span class="status-dot is-live" aria-hidden="true"></span><b id="status-label">RECEIVING</b></span><span>DEVICE <b id="status-device">HACKRF</b></span><span>SESSION <b id="status-session">00:42:17</b></span><span>IQ <b>2.000 MS/s · ci8</b></span><span class="statusbar-end">LOAM / RF CONSOLE v0</span></footer>

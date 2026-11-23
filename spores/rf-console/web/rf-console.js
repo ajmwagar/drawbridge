@@ -52,6 +52,7 @@ const runtime = new Map(
     {
       ...device.initial,
       note: PRESETS[0].note,
+      monitor: false,
     },
   ]),
 );
@@ -105,6 +106,7 @@ const el = {
   bandmapCount: $("#bandmap-count"),
   bandmapPrev: $("#bandmap-prev"),
   bandmapNext: $("#bandmap-next"),
+  monitorToggle: $("#monitor-toggle"),
   recordToggle: $("#record-toggle"),
   recordNote: $("#record-note"),
   feedBadge: $("#feed-badge"),
@@ -428,10 +430,12 @@ function syncControls() {
   el.tuneNote.textContent = state.note || (SDR_LIVE ? "Live SoapySDR · drag to tune" : "Simulated receiver · drag to tune");
   el.rxToggle.textContent = state.running ? "Stop RX" : "Start RX";
   el.peakHold.setAttribute("aria-pressed", String(peakHoldEnabled));
+  el.monitorToggle.setAttribute("aria-pressed", String(state.monitor));
+  el.monitorToggle.textContent = state.monitor ? "Monitor on" : "Monitor";
   el.recordToggle.setAttribute("aria-pressed", String(state.recording));
   el.recordToggle.textContent = state.recording ? "Stop" : "Record";
   el.recordNote.textContent = state.recording
-    ? "SigMF capture · 2.0 MS/s"
+    ? state.recordingPath || "Recording audio · 48 kHz WAV"
     : "No active recording";
   el.statusLabel.textContent = state.running ? "RECEIVING" : "IDLE";
   el.statusDevice.textContent = item.code.split("/")[0].toUpperCase();
@@ -484,6 +488,12 @@ function applySdrFrame(frame) {
   liveSpectrumAt = performance.now();
   SDR_LIVE = true;
   setFeedBadge();
+  if (frame.recording) {
+    settings().recordingPath = frame.recording;
+    el.recordNote.textContent = frame.recording;
+  } else if (!settings().recording) {
+    settings().recordingPath = null;
+  }
   if (Number.isFinite(frame.span_hz)) {
     const actual = frame.span_hz / 1e6;
     if (Math.abs(actual - settings().span) > 0.001) {
@@ -503,7 +513,17 @@ function maybeStartSdr() {
     if (SDR_KEY) stopSdrStream();
     return;
   }
-  const key = [backend, state.freq, state.span, state.bw, state.gain].join("|");
+  const wantsAudio = state.monitor || state.recording;
+  const key = [
+    backend,
+    state.freq,
+    state.span,
+    state.bw,
+    state.gain,
+    state.mode,
+    wantsAudio,
+    state.recording,
+  ].join("|");
   if (key === SDR_KEY) return;
   stopSdrStream();
   SDR_KEY = key;
@@ -515,7 +535,10 @@ function maybeStartSdr() {
     bw: String(Math.round(state.bw * 1000)),
     gain: String(state.gain),
     bins: String(BINS),
+    mode: String(state.mode).toLowerCase(),
   });
+  if (wantsAudio) query.set("audio", "1");
+  if (state.recording) query.set("record", "1");
   const url = `${SDR_URL}/frame?${query.toString()}`;
 
   const tick = async () => {
@@ -607,8 +630,16 @@ function toggleReceiver() {
 function toggleRecording() {
   const state = settings();
   state.recording = !state.recording;
+  state.recordingPath = null;
   syncControls();
   pushEvent(`${state.recording ? "Recording started" : "Recording stopped"} · ${device().name}`);
+}
+
+function toggleMonitor() {
+  const state = settings();
+  state.monitor = !state.monitor;
+  syncControls();
+  pushEvent(`${state.monitor ? "Monitor enabled" : "Monitor muted"} · ${device().name}`);
 }
 
 /* Canvases */
@@ -1021,6 +1052,7 @@ el.peakHold.addEventListener("click", () => {
 });
 
 el.rxToggle.addEventListener("click", toggleReceiver);
+el.monitorToggle.addEventListener("click", toggleMonitor);
 el.recordToggle.addEventListener("click", toggleRecording);
 
 for (const button of document.querySelectorAll("[data-step]")) {

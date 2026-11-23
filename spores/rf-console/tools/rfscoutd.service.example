@@ -16,7 +16,9 @@ ExecStart=/opt/rf-console/rf-bridge \
   --listen 0.0.0.0:8798 \
   --port /dev/ttyACM1 \
   --page /opt/rf-console/index.html \
-  --antenna AR-771
+  --antenna AR-771 \
+  --audio-target 192.168.2.74:50043 \
+  --recordings /opt/rf-console/recordings
 Restart=always
 RestartSec=5
 NoNewPrivileges=true

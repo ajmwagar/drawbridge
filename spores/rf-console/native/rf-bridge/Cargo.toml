@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 chrono = "0.4"
+hound = "3"
 num-complex = "0.4"
 rustfft = "6"
 serde = { version = "1", features = ["derive"] }

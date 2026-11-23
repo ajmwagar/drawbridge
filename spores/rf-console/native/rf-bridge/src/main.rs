@@ -23,6 +23,8 @@ use serde_json::{json, Value};
 use serial2::SerialPort;
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 
+mod audio;
+
 const IQ_SAMPLES: usize = 16_384;
 const DEFAULT_BINS: usize = 512;
 
@@ -383,13 +385,16 @@ struct SdrConfig {
     bins: usize,
     bw: u64,
     gain: f32,
+    mode: String,
+    audio: bool,
+    record: bool,
 }
 
 impl SdrConfig {
     fn key(&self) -> String {
         format!(
-            "{}:{}:{}:{}:{}",
-            self.freq, self.span, self.bins, self.bw, self.gain
+            "{}:{}:{}:{}:{}:{}:{}:{}",
+            self.freq, self.span, self.bins, self.bw, self.gain, self.mode, self.audio, self.record
         )
     }
 }
@@ -409,11 +414,35 @@ struct Worker {
     child: Arc<Mutex<Option<Child>>>,
     frame: Arc<(Mutex<FrameState>, Condvar)>,
     thread: Mutex<Option<JoinHandle<()>>>,
+    audio: Option<Arc<audio::AudioPipeline>>,
+    audio_error: Option<String>,
 }
 
 impl Worker {
-    fn new(spec: DeviceSpec, config: SdrConfig) -> Self {
+    fn new(
+        spec: DeviceSpec,
+        config: SdrConfig,
+        audio_target: std::net::SocketAddr,
+        recordings: &Path,
+    ) -> Self {
         let key = format!("{}:{}", spec.id, config.key());
+        let wants_audio = config.audio || config.record;
+        let input_rate = actual_sample_rate(&spec.driver, config.span);
+        let (audio, audio_error) = if wants_audio {
+            match audio::AudioPipeline::start(
+                input_rate,
+                audio::DemodMode::parse(&config.mode),
+                audio_target,
+                config.record,
+                recordings,
+                &spec.id,
+            ) {
+                Ok(pipeline) => (Some(pipeline), None),
+                Err(error) => (None, Some(error)),
+            }
+        } else {
+            (None, None)
+        };
         Self {
             spec,
             config,
@@ -422,6 +451,8 @@ impl Worker {
             child: Arc::new(Mutex::new(None)),
             frame: Arc::new((Mutex::new(FrameState::default()), Condvar::new())),
             thread: Mutex::new(None),
+            audio,
+            audio_error,
         }
     }
 
@@ -439,6 +470,9 @@ impl Worker {
         if let Some(mut child) = self.child.lock().unwrap().take() {
             let _ = child.kill();
             let _ = child.wait();
+        }
+        if let Some(audio) = &self.audio {
+            audio.stop();
         }
         if let Some(thread) = self.thread.lock().unwrap().take() {
             let _ = thread.join();
@@ -521,7 +555,11 @@ impl Worker {
                     self.fail(format!("read IQ: {error}"));
                     break;
                 }
-                let row = iq_to_dbm(&buffer, &self.spec.driver, self.config.bins);
+                let samples = decode_iq(&buffer, &self.spec.driver);
+                let row = fft_row(&samples, self.config.bins);
+                if let Some(audio) = &self.audio {
+                    audio.push_iq(&samples);
+                }
                 let row = match ema.take() {
                     Some(previous) => previous
                         .iter()
@@ -554,6 +592,9 @@ impl Worker {
                     "gain_db": self.config.gain,
                     "bandwidth_hz": self.config.bw,
                     "calibrated": false,
+                    "audio": self.audio.is_some(),
+                    "audio_error": self.audio_error,
+                    "recording": self.audio.as_ref().and_then(|audio| audio.recording_path()).map(|path| path.display().to_string()),
                     "at": now_iso(),
                 }));
                 ema = Some(row);
@@ -636,7 +677,7 @@ fn actual_sample_rate(driver: &str, span: u64) -> f64 {
     }
 }
 
-fn iq_to_dbm(bytes: &[u8], driver: &str, bins: usize) -> Vec<f32> {
+fn decode_iq(bytes: &[u8], driver: &str) -> Vec<Complex32> {
     let mut samples = Vec::with_capacity(bytes.len() / 2);
     for pair in bytes.chunks_exact(2) {
         let (i, q) = if driver == "rtlsdr" {
@@ -652,6 +693,10 @@ fn iq_to_dbm(bytes: &[u8], driver: &str, bins: usize) -> Vec<f32> {
         };
         samples.push(Complex32::new(i, q));
     }
+    samples
+}
+
+fn fft_row(samples: &[Complex32], bins: usize) -> Vec<f32> {
     let n = samples.len();
     if n == 0 {
         return vec![-130.0; bins];
@@ -659,7 +704,8 @@ fn iq_to_dbm(bytes: &[u8], driver: &str, bins: usize) -> Vec<f32> {
     let mut planner = FftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(n);
     let mut buffer: Vec<Complex32> = samples
-        .into_iter()
+        .iter()
+        .copied()
         .enumerate()
         .map(|(index, sample)| {
             let window = 0.5 - 0.5 * (std::f32::consts::TAU * index as f32 / (n - 1) as f32).cos();
@@ -687,23 +733,27 @@ fn iq_to_dbm(bytes: &[u8], driver: &str, bins: usize) -> Vec<f32> {
 struct SdrManager {
     current: Mutex<Option<Arc<Worker>>>,
     devices: Mutex<(Instant, Vec<DeviceSpec>)>,
+    audio_target: std::net::SocketAddr,
+    recordings: PathBuf,
 }
 
 impl SdrManager {
-    fn new() -> Self {
+    fn new(audio_target: std::net::SocketAddr, recordings: PathBuf) -> Self {
         // Enumerate before any worker owns a device: SoapySDRUtil cannot see a
         // HackRF while hackrf_transfer has it open.
         let initial = enumerate_devices();
         Self {
             current: Mutex::new(None),
             devices: Mutex::new((Instant::now(), initial)),
+            audio_target,
+            recordings,
         }
     }
 
     fn devices(&self) -> Vec<DeviceSpec> {
         {
             let cached = self.devices.lock().unwrap();
-            if cached.0.elapsed() < Duration::from_secs(5) {
+            if cached.0.elapsed() < Duration::from_secs(30) {
                 return cached.1.clone();
             }
         }
@@ -723,11 +773,21 @@ impl SdrManager {
     }
 
     fn frame(&self, device: &str, config: SdrConfig) -> Result<Value, String> {
-        let spec = self
-            .devices()
-            .into_iter()
-            .find(|item| item.id == device)
-            .ok_or_else(|| format!("device not found: {device}"))?;
+        let active_spec = {
+            let current = self.current.lock().unwrap();
+            current
+                .as_ref()
+                .filter(|worker| worker.spec.id == device)
+                .map(|worker| worker.spec.clone())
+        };
+        let spec = match active_spec {
+            Some(spec) => spec,
+            None => self
+                .devices()
+                .into_iter()
+                .find(|item| item.id == device)
+                .ok_or_else(|| format!("device not found: {device}"))?,
+        };
         let worker = {
             let mut current = self.current.lock().unwrap();
             let wanted_key = format!("{}:{}", spec.id, config.key());
@@ -740,13 +800,23 @@ impl SdrManager {
                         old.stop();
                         thread::sleep(Duration::from_millis(400));
                     }
-                    let worker = Arc::new(Worker::new(spec, config));
+                    let worker = Arc::new(Worker::new(
+                        spec,
+                        config,
+                        self.audio_target,
+                        &self.recordings,
+                    ));
                     worker.start();
                     *current = Some(Arc::clone(&worker));
                     worker
                 }
             } else {
-                let worker = Arc::new(Worker::new(spec, config));
+                let worker = Arc::new(Worker::new(
+                    spec,
+                    config,
+                    self.audio_target,
+                    &self.recordings,
+                ));
                 worker.start();
                 *current = Some(Arc::clone(&worker));
                 worker
@@ -815,6 +885,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut page = PathBuf::from("/opt/rf-console/index.html");
     let mut antenna = "AR-771".to_string();
     let mut points = 200usize;
+    let mut audio_target = "192.168.2.74:50043".parse().unwrap();
+    let mut recordings = PathBuf::from("/opt/rf-console/recordings");
     let mut index = 1;
     while index < args.len() {
         match args[index].as_str() {
@@ -841,6 +913,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .and_then(|value| value.parse().ok())
                     .unwrap_or(points);
             }
+            "--audio-target" => {
+                index += 1;
+                if let Some(value) = args.get(index) {
+                    if let Ok(value) = value.parse() {
+                        audio_target = value;
+                    }
+                }
+            }
+            "--recordings" => {
+                index += 1;
+                if let Some(value) = args.get(index) {
+                    recordings = PathBuf::from(value);
+                }
+            }
             other => eprintln!("unknown argument: {other}"),
         }
         index += 1;
@@ -860,7 +946,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .spawn(move || scout_thread.run())?;
     let app = Arc::new(App {
         scout,
-        sdrs: Arc::new(SdrManager::new()),
+        sdrs: Arc::new(SdrManager::new(audio_target, recordings)),
     });
     let server = Server::http(&listen).map_err(|error| format!("listen {listen}: {error}"))?;
     println!("rf-bridge on http://{listen}");
@@ -958,6 +1044,15 @@ fn handle(request: Request, app: &App) {
                     .get("gain")
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(20.0),
+                mode: query.get("mode").cloned().unwrap_or_else(|| "nfm".into()),
+                audio: query
+                    .get("audio")
+                    .map(|value| value == "1" || value == "true")
+                    .unwrap_or(false),
+                record: query
+                    .get("record")
+                    .map(|value| value == "1" || value == "true")
+                    .unwrap_or(false),
             };
             match app.sdrs.frame(device, config) {
                 Ok(frame) => json_response(request, frame),

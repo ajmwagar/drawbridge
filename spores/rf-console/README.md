@@ -28,6 +28,7 @@ native/rf-bridge/    Rust TinySA + SDR bridge (active service)
 tools/scoutd.py      legacy Python bridge, kept as fallback
 tools/scout_core.py  legacy shared TinySA serial scan logic
 tools/sdr_core.py    legacy SoapySDR workers and bounded FFT frames
+native/rf-bridge/src/audio.rs  Rust demod + RTP + WAV recording
 ```
 
 The browser script no longer defines the receiver inventory or controls. It
@@ -122,9 +123,26 @@ sudo usbreset 1d50:6089
 sudo usbreset 0bda:2838
 ```
 
-Audio playback is not wired yet. The Rust DSP and `soil:radio`/`soil:playback`
-contracts live in the `radioman` repository; the RF console currently exposes
-spectrum/tuning only.
+Audio is wired through the native bridge. The `Monitor` button enables the
+Rust demod path; audio is sent as 48 kHz stereo AES67-style RTP to:
+
+```text
+192.168.2.74:50043
+```
+
+That is `isochrone-soil-receiver` on `home-pi`, which feeds the
+`reference_soil` JACK input in Synesthesia. The receiver stays in its own
+isochronous clock domain and reports fill/correction/underruns.
+
+`Record` writes 48 kHz stereo float WAV files under:
+
+```text
+/opt/rf-console/recordings/
+```
+
+The active service still uses the Rust bridge; Python `scoutd.py` remains
+legacy fallback only. The `radioman` repository holds the reusable DSP and
+`soil:radio` / `soil:playback` contracts.
 
 The TinySA can wedge its USB serial endpoint if its output is not drained. The
 Rust bridge drains sweep/scan responses and marks the scout offline on failure.
@@ -158,7 +176,17 @@ The current deployment is on `radioman-pi` at `192.168.2.90`:
 ```
 
 The systemd unit is `/etc/systemd/system/rfscoutd.service` and runs the Rust
-binary. The frontdoor upstream is:
+binary. Audio defaults to `--audio-target 192.168.2.74:50043` and
+`--recordings /opt/rf-console/recordings`.
+
+The Mac frontdoor cannot reach the Pi's LAN address directly from its launchd
+context, so a persistent SSH tunnel is used:
+
+```text
+127.0.0.1:8797 → 192.168.2.90:8798
+```
+
+The frontdoor upstream is:
 
 ```json
 "upstream": "http://192.168.2.90:8798"
