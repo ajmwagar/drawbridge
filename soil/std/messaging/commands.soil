@@ -1,0 +1,75 @@
+; SPDX-License-Identifier: Apache-2.0
+; Owner command parser. The host must reject non-owner senders before this
+; module is called. A parsed command is never forwarded as MeshCore text.
+
+(define messaging/help
+  "MeshCore commands (owner only):
+/mesh status
+/mesh advert [flood|zerohop]
+/mesh name <name>
+/mesh txpower <0-30>
+/mesh pathmode <0|1|2>
+/mesh autoadd on|off
+/mesh channels
+/mesh contacts
+/mesh channel create <name>
+/mesh channel key <index>
+/mesh channel share <index>")
+
+(defun messaging/space? (ch)
+  (or (= ch " ") (= ch "\n") (= ch "\t") (= ch "\r")))
+
+(defun messaging/trim-left (chars)
+  (cond
+    ((nil? chars) nil)
+    ((messaging/space? (first chars)) (messaging/trim-left (rest chars)))
+    (else chars)))
+
+(defun messaging/trim-right (chars)
+  (reverse (messaging/trim-left (reverse chars))))
+
+(defun messaging/trim (text)
+  (string-join (messaging/trim-right (messaging/trim-left (string-chars (str text)))) ""))
+
+(defun messaging/command (text)
+  (let ((t (messaging/trim text)))
+    (cond
+      ((or (= t "/mesh") (= t "/mesh help") (= t "!mesh") (= t "!mesh help"))
+        (list 'ok (list :kind "help")))
+      ((or (= t "/mesh status") (= t "!mesh status"))
+        (list 'ok (list :kind "status")))
+      ((or (= t "/mesh advert") (= t "!mesh advert"))
+        (list 'ok (list :kind "advert" :flood #t)))
+      ((or (= t "/mesh advert zerohop") (= t "!mesh advert zerohop"))
+        (list 'ok (list :kind "advert" :flood #f)))
+      ((messaging/prefix? t "/mesh name ")
+        (list 'ok (list :kind "name" :name (messaging/drop-prefix t "/mesh name "))))
+      ((messaging/prefix? t "!mesh name ")
+        (list 'ok (list :kind "name" :name (messaging/drop-prefix t "!mesh name "))))
+      ((messaging/prefix? t "/mesh txpower ")
+        (list 'ok (list :kind "txpower" :value (int (messaging/drop-prefix t "/mesh txpower ")))))
+      ((messaging/prefix? t "/mesh pathmode ")
+        (list 'ok (list :kind "pathmode" :mode (int (messaging/drop-prefix t "/mesh pathmode ")))))
+      ((messaging/prefix? t "/mesh autoadd ")
+        (list 'ok (list :kind "autoadd" :enabled (= (messaging/drop-prefix t "/mesh autoadd ") "on"))))
+      ((or (= t "/mesh channels") (= t "!mesh channels"))
+        (list 'ok (list :kind "channels")))
+      ((or (= t "/mesh contacts") (= t "!mesh contacts"))
+        (list 'ok (list :kind "contacts")))
+      ((messaging/prefix? t "/mesh channel create ")
+        (list 'ok (list :kind "channel-create" :name (messaging/drop-prefix t "/mesh channel create "))))
+      ((messaging/prefix? t "/mesh channel key ")
+        (list 'ok (list :kind "channel-key" :index (int (messaging/drop-prefix t "/mesh channel key ")))))
+      ((messaging/prefix? t "/mesh channel share ")
+        (list 'ok (list :kind "channel-share" :index (int (messaging/drop-prefix t "/mesh channel share ")))))
+      ((messaging/prefix? t "/mesh")
+        (list 'err "unknown MeshCore command; try /mesh help"))
+      ((messaging/prefix? t "!mesh")
+        (list 'err "unknown MeshCore command; try /mesh help"))
+      (else nil))))
+
+(defun messaging/command? (text)
+  (not (nil? (messaging/command text))))
+
+(defun messaging/reply-for-help ()
+  (list 'ok (list :kind "reply" :text messaging/help)))

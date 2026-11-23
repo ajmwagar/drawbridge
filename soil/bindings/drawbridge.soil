@@ -1,0 +1,173 @@
+; SPDX-License-Identifier: Apache-2.0
+; Hand-written binding for wit/drawbridge.wit.
+;
+; Regenerate with soil-witgen once the host adapter exists:
+;   soil-witgen wit/drawbridge.wit --out soil/bindings/drawbridge.soil
+;
+; The Soil messaging core uses the host for transport and durability; this
+; binding exposes only the operations policy needs.
+
+(define-package "ajmwagar:drawbridge@0.1.0" :base "ajmwagar:drawbridge" :version "0.1.0")
+
+(define-enum ajmwagar:drawbridge/types.conversation-kind channel contact)
+
+(define-record ajmwagar:drawbridge/types.conversation
+  (kind ajmwagar:drawbridge/types.conversation-kind)
+  (id string)
+)
+
+(define-record ajmwagar:drawbridge/types.message
+  (id string)
+  (conversation ajmwagar:drawbridge/types.conversation)
+  (sender string)
+  (sender-name (option string))
+  (text string)
+  (received-at-ms u64)
+)
+
+(define-record ajmwagar:drawbridge/types.matrix-event
+  (event-id string)
+  (room string)
+  (sender string)
+  (kind string)
+  (body (option string))
+  (origin-server-ts-ms (option u64))
+  (encrypted bool)
+)
+
+(define-record ajmwagar:drawbridge/types.transaction
+  (id string)
+  (events (list ajmwagar:drawbridge/types.matrix-event))
+)
+
+(define-variant ajmwagar:drawbridge/types.event
+  (meshcore ajmwagar:drawbridge/types.message)
+  (matrix ajmwagar:drawbridge/types.transaction)
+)
+
+(define-record ajmwagar:drawbridge/types.page
+  (events (list ajmwagar:drawbridge/types.event))
+  (next (option string))
+)
+
+(define-record ajmwagar:drawbridge/types.send-ack
+  (request-id string)
+  (state string)
+)
+
+(define-record ajmwagar:drawbridge/types.binding
+  (conversation ajmwagar:drawbridge/types.conversation)
+  (room string)
+  (ghost string)
+  (display-name string)
+)
+
+(define-record ajmwagar:drawbridge/types.health
+  (sidecar-connected bool)
+  (radio-name string)
+  (radio-public-key string)
+  (contacts u64)
+  (channels u64)
+)
+
+(define-enum ajmwagar:drawbridge/types.error
+  denied invalid unavailable over-budget conflict stale unsupported io)
+
+(define-capability ajmwagar:drawbridge/bridge.poll
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "poll"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ((cursor (option string)) (limit u32))
+  :result (result ajmwagar:drawbridge/types.page ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.poll (cursor limit)
+  (host-call "ajmwagar:drawbridge/bridge" "poll" (list cursor limit)))
+
+(define-capability ajmwagar:drawbridge/bridge.send
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "send"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ((conversation ajmwagar:drawbridge/types.conversation) (text string))
+  :result (result ajmwagar:drawbridge/types.send-ack ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.send (conversation text)
+  (host-call "ajmwagar:drawbridge/bridge" "send" (list conversation text)))
+
+(define-capability ajmwagar:drawbridge/bridge.deliver
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "deliver"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ((room string) (transaction-id string) (text string))
+  :result (result string ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.deliver (room transaction-id text)
+  (host-call "ajmwagar:drawbridge/bridge" "deliver" (list room transaction-id text)))
+
+(define-capability ajmwagar:drawbridge/bridge.bind
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "bind"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ((binding ajmwagar:drawbridge/types.binding))
+  :result (result unit ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.bind (binding)
+  (host-call "ajmwagar:drawbridge/bridge" "bind" (list binding)))
+
+(define-capability ajmwagar:drawbridge/bridge.bindings
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "bindings"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ()
+  :result (result (list ajmwagar:drawbridge/types.binding) ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.bindings ()
+  (host-call "ajmwagar:drawbridge/bridge" "bindings" nil))
+
+(define-capability ajmwagar:drawbridge/bridge.claim
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "claim"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ((key string))
+  :result (result bool ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.claim (key)
+  (host-call "ajmwagar:drawbridge/bridge" "claim" (list key)))
+
+(define-capability ajmwagar:drawbridge/bridge.commit
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "commit"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ((transaction-id string))
+  :result (result unit ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.commit (transaction-id)
+  (host-call "ajmwagar:drawbridge/bridge" "commit" (list transaction-id)))
+
+(define-capability ajmwagar:drawbridge/bridge.rollback
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "rollback"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ((transaction-id string))
+  :result (result unit ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.rollback (transaction-id)
+  (host-call "ajmwagar:drawbridge/bridge" "rollback" (list transaction-id)))
+
+(define-capability ajmwagar:drawbridge/bridge.status
+  :interface "ajmwagar:drawbridge/bridge"
+  :function "status"
+  :grant "ajmwagar:drawbridge"
+  :version "0.1.0"
+  :params ()
+  :result (result ajmwagar:drawbridge/types.health ajmwagar:drawbridge/types.error))
+
+(defun ajmwagar:drawbridge/bridge.status ()
+  (host-call "ajmwagar:drawbridge/bridge" "status" nil))

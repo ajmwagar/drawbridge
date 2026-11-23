@@ -1,0 +1,51 @@
+; SPDX-License-Identifier: Apache-2.0
+; Conversation keys, room names and allowlist helpers for Drawbridge Spores.
+
+(defun messaging/conversation (kind id)
+  (list (list :kind kind) (list :id id)))
+
+(defun messaging/channel (index)
+  (messaging/conversation "channel" (str index)))
+
+(defun messaging/contact (prefix)
+  (messaging/conversation "contact" (str prefix)))
+
+(defun messaging/key (conversation)
+  (str (field conversation :kind) ":" (field conversation :id)))
+
+(defun messaging/prefix? (text prefix)
+  (= (take (length (string-chars prefix)) (string-chars text))
+     (string-chars prefix)))
+
+(defun messaging/drop-prefix (text prefix)
+  (string-join (drop (length (string-chars prefix)) (string-chars text)) ""))
+
+(defun messaging/channel-index (conversation)
+  (if (= (field conversation :kind) "channel")
+      (int (field conversation :id))
+      nil))
+
+(defun messaging/room-name (display protocol)
+  (str display " · " protocol))
+
+(defun messaging/allowed-channel? (allowed channel)
+  (or (nil? allowed)
+      (= (length allowed) 0)
+      (messaging/member? channel allowed)))
+
+(defun messaging/allowed-contact? (allowed prefix)
+  (or (nil? allowed)
+      (= (length allowed) 0)
+      (messaging/any-prefix? prefix allowed)))
+
+(defun messaging/member? (value values)
+  (cond
+    ((nil? values) #f)
+    ((= value (first values)) #t)
+    (else (messaging/member? value (rest values)))))
+
+(defun messaging/any-prefix? (text prefixes)
+  (cond
+    ((nil? prefixes) #f)
+    ((messaging/prefix? text (first prefixes)) #t)
+    (else (messaging/any-prefix? text (rest prefixes)))))

@@ -74,6 +74,10 @@ Matrix, MeshCore HTTP, SQLite and credentials.
 native sidecar plugin rather than a pure Wasm plugin, and the open questions
 (blocking `poll`, transaction paging, backfill, multi-tenancy).
 
+[`soil/`](soil) is the Drawbridge-owned Soil library: the WIT binding plus the
+shared `std/messaging` helpers (conversation keys, command parsing, contact
+union). Bridge Spores import this; they do not reimplement the host contract.
+
 ## Build and verify
 
 ```sh
