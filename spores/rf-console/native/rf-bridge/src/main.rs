@@ -174,11 +174,15 @@ impl Scout {
             state.scan_started_at = Some(now_iso());
             state.scan_count = state.scan_count.saturating_add(1);
         });
+        let mut valid = 0;
         for preset in presets {
             if self.stop.load(Ordering::Relaxed) {
                 return Ok(());
             }
             let reading = self.scan_preset(&port, &preset);
+            if reading.error.is_none() {
+                valid += 1;
+            }
             self.update(|state| {
                 state.presets.insert(preset.name.clone(), reading.clone());
                 state.error = reading.error.clone();
@@ -188,8 +192,16 @@ impl Scout {
                 preset.name, reading.peak_dbm, reading.snr_db
             );
         }
+        if valid == 0 {
+            self.update(|state| {
+                state.status = "offline".into();
+                state.error = Some("TinySA returned no usable readings".into());
+            });
+            return Err("TinySA returned no usable readings".into());
+        }
         self.update(|state| {
             state.status = "live".into();
+            state.error = None;
             state.scanned_at = Some(now_iso());
             state.scan_started_at = Some(now_iso());
         });
@@ -599,7 +611,7 @@ impl Worker {
         command
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::inherit())
             .spawn()
             .map_err(|error| format!("spawn {}: {error}", self.spec.driver))
     }
@@ -679,9 +691,12 @@ struct SdrManager {
 
 impl SdrManager {
     fn new() -> Self {
+        // Enumerate before any worker owns a device: SoapySDRUtil cannot see a
+        // HackRF while hackrf_transfer has it open.
+        let initial = enumerate_devices();
         Self {
             current: Mutex::new(None),
-            devices: Mutex::new((Instant::now() - Duration::from_secs(10), Vec::new())),
+            devices: Mutex::new((Instant::now(), initial)),
         }
     }
 
@@ -693,8 +708,18 @@ impl SdrManager {
             }
         }
         let found = enumerate_devices();
-        *self.devices.lock().unwrap() = (Instant::now(), found.clone());
-        found
+        let mut cached = self.devices.lock().unwrap();
+        let mut merged = cached.1.clone();
+        for device in found {
+            if !merged
+                .iter()
+                .any(|existing| existing.id == device.id && existing.serial == device.serial)
+            {
+                merged.push(device);
+            }
+        }
+        *cached = (Instant::now(), merged.clone());
+        merged
     }
 
     fn frame(&self, device: &str, config: SdrConfig) -> Result<Value, String> {
@@ -713,6 +738,7 @@ impl SdrManager {
                     let old = current.take();
                     if let Some(old) = old {
                         old.stop();
+                        thread::sleep(Duration::from_millis(400));
                     }
                     let worker = Arc::new(Worker::new(spec, config));
                     worker.start();
