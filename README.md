@@ -65,6 +65,15 @@ The first consumer is
 [`meshcore-mautrix`](https://github.com/ajmwagar/meshcore-mautrix), which bridges
 a MeshCore companion radio (through the Radioman sidecar HTTP API) to Matrix.
 
+## Soil / Loam
+
+[`wit/drawbridge.wit`](wit/drawbridge.wit) is the draft host capability for
+running bridge policy in a Soil Spore while the native Drawbridge host owns
+Matrix, MeshCore HTTP, SQLite and credentials.
+[`docs/soil-plugin.md`](docs/soil-plugin.md) explains the split, why this is a
+native sidecar plugin rather than a pure Wasm plugin, and the open questions
+(blocking `poll`, transaction paging, backfill, multi-tenancy).
+
 ## Build and verify
 
 ```sh
