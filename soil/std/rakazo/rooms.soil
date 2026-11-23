@@ -1,0 +1,37 @@
+; SPDX-License-Identifier: Apache-2.0
+; Rakazo room and thread mapping policy, ported from rakazo-drawbridge.
+;
+; The host owns room creation, ghosts, power levels and Matrix state. This
+; module owns the stable keys and display policy the host must use.
+
+(defun rakazo/room-name (name)
+  (str name " · Rakazo"))
+
+(defun rakazo/topic ()
+  "Rakazo agent conversation. This bridge currently requires an unencrypted room.")
+
+(defun rakazo/bridge-key (tenant bot)
+  (str "rakazo://" tenant "/" bot))
+
+(defun rakazo/thread-key (tenant bot thread)
+  (str "rakazo://" tenant "/" bot "/thread/" thread))
+
+(defun rakazo/ghost-suffix (tenant bot)
+  (str tenant ":" bot))
+
+(defun rakazo/room-spec (tenant bot name)
+  (list
+    (list :name (rakazo/room-name name))
+    (list :topic (rakazo/topic))
+    (list :bridge-key (rakazo/bridge-key tenant bot))
+    (list :protocol "rakazo")
+    (list :protocol-name "Rakazo")
+    (list :channel-id bot)
+    (list :channel-name name)))
+
+(defun rakazo/room-spec? (spec)
+  (and (not (nil? (field spec :bridge-key)))
+       (not (nil? (field spec :channel-id)))))
+
+(defun rakazo/run-route (tenant bot run)
+  (str "rakazo://" tenant "/" bot "/run/" run))
