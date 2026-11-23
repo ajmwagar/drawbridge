@@ -22,15 +22,15 @@
 
 (defun rf/categories ()
   (list
-    (list (list :id "all") (list :label "All bands") (list :intro "Every scenario in the map, grouped below. Start anywhere; the receiver follows the card."))
-    (list (list :id "weather") (list :label "Weather") (list :intro "Continuous voice forecasts and alerts, plus the satellites that send pictures. Weather radio is the easiest place to hear a real signal immediately."))
-    (list (list :id "emergency") (list :label "Emergency") (list :intro "Channels reserved for distress, safety, and shared public use. Long silence is normal; that is what makes a transmission stand out."))
-    (list (list :id "satellite") (list :label "Satellites") (list :intro "Short passes carrying images, telemetry, and occasional voice. These need a clear view of the sky and patience between passes."))
-    (list (list :id "data") (list :label "Data & LoRa") (list :intro "APRS, MeshCore, LoRa, ISM sensors, and digital weak-signal modes. Expect chirps and bursts rather than a voice you can listen to."))
-    (list (list :id "aviation") (list :label "Aviation") (list :intro "AM voice around airports, plus 1090 MHz surveillance. Airband is line-of-sight and busiest near an airport."))
-    (list (list :id "marine") (list :label "Marine") (list :intro "VHF marine channels and AIS ship tracking. Range is usually local unless you have height and a good antenna."))
-    (list (list :id "broadcast") (list :label "Broadcast") (list :intro "Wide commercial signals: FM radio and digital television. These are strong, continuous, and easy to tune by ear or eye."))
-    (list (list :id "amateur") (list :label "Amateur") (list :intro "Calling frequencies and digital watering holes used by licensed operators. Activity follows time of day and propagation."))))
+    (list  (list :id "all") (list :label "All bands") (list :tab "ALL") (list :intro "Every scenario in the map, grouped below. Start anywhere; the receiver follows the card."))
+    (list  (list :id "weather") (list :label "Weather") (list :tab "WX") (list :intro "Continuous voice forecasts and alerts, plus the satellites that send pictures. Weather radio is the easiest place to hear a real signal immediately."))
+    (list  (list :id "emergency") (list :label "Emergency") (list :tab "EMR") (list :intro "Channels reserved for distress, safety, and shared public use. Long silence is normal; that is what makes a transmission stand out."))
+    (list  (list :id "satellite") (list :label "Satellites") (list :tab "SAT") (list :intro "Short passes carrying images, telemetry, and occasional voice. These need a clear view of the sky and patience between passes."))
+    (list  (list :id "data") (list :label "Data & LoRa") (list :tab "DATA") (list :intro "APRS, MeshCore, LoRa, ISM sensors, and digital weak-signal modes. Expect chirps and bursts rather than a voice you can listen to."))
+    (list  (list :id "aviation") (list :label "Aviation") (list :tab "AIR") (list :intro "AM voice around airports, plus 1090 MHz surveillance. Airband is line-of-sight and busiest near an airport."))
+    (list  (list :id "marine") (list :label "Marine") (list :tab "SEA") (list :intro "VHF marine channels and AIS ship tracking. Range is usually local unless you have height and a good antenna."))
+    (list  (list :id "broadcast") (list :label "Broadcast") (list :tab "FM/TV") (list :intro "Wide commercial signals: FM radio and digital television. These are strong, continuous, and easy to tune by ear or eye."))
+    (list  (list :id "amateur") (list :label "Amateur") (list :tab "HAM") (list :intro "Calling frequencies and digital watering holes used by licensed operators. Activity follows time of day and propagation."))))
 
 (defun rf/presets ()
   (list

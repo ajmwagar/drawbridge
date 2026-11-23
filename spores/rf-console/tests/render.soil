@@ -7,6 +7,8 @@
       (string-contains? html "<!doctype html>")
       (string-contains? html "id=\"rf-state\"")
       (string-contains? html "HackRF One")
+      (string-contains? html "id=\"bandmap-folders\"")
+      (string-contains? html "data-bandmap-category=\"weather\"")
       (string-contains? html "data-device=\"meshcore\""))))
 
 (defun test-device-data ()

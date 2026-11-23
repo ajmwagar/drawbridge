@@ -60,19 +60,6 @@
 (defun rf/mode-buttons (modes)
   (string-join (map 'rf/mode-button modes) ""))
 
-(defun rf/category-button (category active?)
-  (str "<button type=\"button\" class=\"bandmap-tab"
-       (if active? " is-active" "") "\" data-bandmap-category=\""
-       (attr-escape (field category :id)) "\">"
-       (rf/fill (field category :label)) "</button>"))
-
-(defun rf/category-buttons (categories first?)
-  (if (nil? categories)
-      ""
-      (str
-        (rf/category-button (first categories) first?)
-        (rf/category-buttons (rest categories) #f))))
-
 (defun rf/region-label (region)
   (cond
     ((= region "us") "US")
@@ -89,6 +76,36 @@
       (if (= (field (first presets) :category) category)
           (cons (first presets) (rf/category-presets (rest presets) category))
           (rf/category-presets (rest presets) category))))
+
+(defun rf/first-n (items n)
+  (if (or (nil? items) (<= n 0))
+      nil
+      (cons (first items) (rf/first-n (rest items) (- n 1)))))
+
+(defun rf/preset-names (presets)
+  (map (lambda (preset) (field preset :name)) (rf/first-n presets 3)))
+
+(defun rf/folder-card (category presets)
+  (let ((items (rf/category-presets presets (field category :id))))
+    (str
+      "<button type=\"button\" class=\"folder-card\" data-bandmap-category=\""
+      (attr-escape (field category :id)) "\">"
+      "<span class=\"folder-tab\">" (rf/fill (field category :tab)) "</span>"
+      "<span class=\"folder-head\"><span class=\"folder-name\">"
+      (rf/fill (field category :label)) "</span>"
+      "<span class=\"folder-count\">" (length items) " places</span></span>"
+      "<span class=\"folder-intro\">" (rf/fill (field category :intro)) "</span>"
+      "<span class=\"folder-samples\">" (rf/fill (string-join (rf/preset-names items) " · ")) "</span>"
+      "</button>")))
+
+(defun rf/folder-cards (categories presets)
+  (if (nil? categories)
+      ""
+      (if (= (field (first categories) :id) "all")
+          (rf/folder-cards (rest categories) presets)
+          (str
+            (rf/folder-card (first categories) presets)
+            (rf/folder-cards (rest categories) presets)))))
 
 (defun rf/band-card (preset)
   (str
@@ -114,7 +131,7 @@
   (let ((items (rf/category-presets presets (field category :id))))
     (str "<section class=\"bandmap-group\" data-bandmap-group=\""
          (attr-escape (field category :id)) "\""
-         (if (= (field category :id) "weather") "" " hidden") ">"
+         " hidden>"
          "<div class=\"bandmap-group-head\"><h3>" (rf/fill (field category :label)) "</h3>"
          "<p>" (rf/fill (field category :intro)) "</p></div>"
          "<div class=\"bandmap-cards\">" (rf/band-cards items) "</div></section>")))
@@ -146,11 +163,16 @@
     "<span class=\"bandmap-gps\" id=\"bandmap-gps\">No GPS fix · "
     (rf/fill (field (rf/gps) :label)) "</span>"
     "<span class=\"bandmap-count\" id=\"bandmap-count\">24 places</span></div>"
+    "<div class=\"bandmap-breadcrumb\" id=\"bandmap-breadcrumb\">"
+    "<button type=\"button\" class=\"bandmap-crumb\" data-bandmap-category=\"folders\">All bands</button>"
+    "<span class=\"bandmap-crumb-sep\">/</span>"
+    "<span class=\"bandmap-crumb-current\" id=\"bandmap-crumb\">Folders</span></div>"
     "<div class=\"bandmap-body\">"
-    "<nav class=\"bandmap-nav\" id=\"bandmap-nav\" aria-label=\"Band categories\">"
-    (rf/category-buttons (rf/categories) #f) "</nav>"
     "<div class=\"bandmap-content\" id=\"bandmap-content\">"
-    (rf/band-groups (rf/categories) (rf/presets)) "</div></div>"
+    "<section class=\"bandmap-folders\" id=\"bandmap-folders\">"
+    (rf/folder-cards (rf/categories) (rf/presets)) "</section>"
+    "<div class=\"bandmap-groups\" id=\"bandmap-groups\" hidden>"
+    (rf/band-groups (rf/categories) (rf/presets)) "</div></div></div>"
     "<footer class=\"bandmap-foot\"><span>Frequencies are starting points. Antenna, location, and time of day decide what is actually audible.</span>"
     "<div><button type=\"button\" class=\"bandmap-step\" id=\"bandmap-prev\">‹ Previous</button>"
     "<button type=\"button\" class=\"bandmap-step\" id=\"bandmap-next\">Next ›</button></div></footer>"

@@ -43,7 +43,7 @@ const runtime = new Map(
 );
 
 let activeId = "hackrf";
-let bandmapCategory = "weather";
+let bandmapCategory = "folders";
 let bandmapRegion = "auto";
 let hoveredFreq = null;
 let dragging = false;
@@ -80,7 +80,10 @@ const el = {
   bandPicker: $("#band-picker"),
   bandmap: $("#bandmap"),
   bandmapClose: $("#bandmap-close"),
-  bandmapNav: $("#bandmap-nav"),
+  bandmapBreadcrumb: $("#bandmap-breadcrumb"),
+  bandmapCrumb: $("#bandmap-crumb"),
+  bandmapFolders: $("#bandmap-folders"),
+  bandmapGroups: $("#bandmap-groups"),
   bandmapContent: $("#bandmap-content"),
   bandmapRegion: $("#bandmap-region"),
   bandmapGps: $("#bandmap-gps"),
@@ -175,32 +178,58 @@ function matchesRegion(preset, region) {
   return regions.includes("global") || regions.includes(region);
 }
 
-function visibleBandmapPresets() {
+function bandmapPool() {
   const region = selectedRegion();
   return PRESETS.filter(
     (preset) =>
-      (bandmapCategory === "all" || preset.category === bandmapCategory) &&
+      (bandmapCategory === "folders" ||
+        bandmapCategory === "all" ||
+        preset.category === bandmapCategory) &&
       matchesRegion(preset, region),
   );
 }
 
+function visibleBandmapPresets() {
+  return bandmapPool();
+}
+
+function categoryLabel(id) {
+  if (id === "folders") return "Folders";
+  return CATEGORIES.find((category) => category.id === id)?.label || "All bands";
+}
+
 function renderBandmap() {
   const state = settings();
-  const visible = visibleBandmapPresets();
+  const folders = bandmapCategory === "folders";
+  const region = selectedRegion();
+  const visible = bandmapPool();
   const names = new Set(visible.map((preset) => preset.name));
 
-  el.bandmapNav.querySelectorAll("[data-bandmap-category]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.bandmapCategory === bandmapCategory);
+  el.bandmapFolders.hidden = !folders;
+  el.bandmapGroups.hidden = folders;
+  el.bandmapPrev.hidden = folders;
+  el.bandmapNext.hidden = folders;
+  el.bandmapCrumb.textContent = categoryLabel(bandmapCategory);
+
+  el.bandmapContent.querySelectorAll(".folder-card").forEach((card) => {
+    const id = card.dataset.bandmapCategory;
+    const count = PRESETS.filter(
+      (preset) => preset.category === id && matchesRegion(preset, region),
+    ).length;
+    card.hidden = count === 0;
+    const countEl = card.querySelector(".folder-count");
+    if (countEl) countEl.textContent = `${count} place${count === 1 ? "" : "s"}`;
   });
 
   el.bandmapContent.querySelectorAll("[data-bandmap-group]").forEach((group) => {
-    group.hidden = bandmapCategory !== "all" && group.dataset.bandmapGroup !== bandmapCategory;
+    group.hidden =
+      folders || (bandmapCategory !== "all" && group.dataset.bandmapGroup !== bandmapCategory);
   });
 
   el.bandmapContent.querySelectorAll(".band-card").forEach((card) => {
     const button = card.querySelector("[data-scenario]");
     const preset = PRESETS.find((item) => item.name === button?.dataset.scenario);
-    card.hidden = !preset || !names.has(preset.name);
+    card.hidden = folders || !preset || !names.has(preset.name);
     card.classList.toggle(
       "is-current",
       Boolean(preset && preset.device === activeId && preset.freq === state.freq),
@@ -213,7 +242,15 @@ function renderBandmap() {
     }
   });
 
-  el.bandmapCount.textContent = `${visible.length} place${visible.length === 1 ? "" : "s"}`;
+  if (folders) {
+    const visibleFolders = [...el.bandmapContent.querySelectorAll(".folder-card")].filter(
+      (card) => !card.hidden,
+    ).length;
+    el.bandmapCount.textContent = `${visibleFolders} folder${visibleFolders === 1 ? "" : "s"}`;
+  } else {
+    el.bandmapCount.textContent = `${visible.length} place${visible.length === 1 ? "" : "s"}`;
+  }
+
   el.bandmapGps.textContent = GPS.fix
     ? `GPS fix · ${GPS.label}`
     : `No GPS fix · ${GPS.label}`;
@@ -660,7 +697,13 @@ function frame(now) {
 drawSpectrum(lastSpectrum, performance.now());
 drawWaterfall(lastSpectrum);
 lastWaterfallDraw = performance.now();
-if (location.hash === "#bands") openBandmap();
+const bandHash = location.hash.match(/^#bands(?:\/([a-z-]+))?$/);
+if (bandHash) {
+  if (bandHash[1] && CATEGORIES.some((category) => category.id === bandHash[1])) {
+    bandmapCategory = bandHash[1];
+  }
+  openBandmap();
+}
 requestAnimationFrame(frame);
 }
 
@@ -691,13 +734,19 @@ el.bandmapClose.addEventListener("click", closeBandmap);
 el.bandmap.addEventListener("click", (event) => {
   if (event.target.closest("[data-bandmap-close]")) closeBandmap();
 });
-el.bandmapNav.addEventListener("click", (event) => {
+el.bandmapBreadcrumb.addEventListener("click", (event) => {
   const button = event.target.closest("[data-bandmap-category]");
   if (!button) return;
   bandmapCategory = button.dataset.bandmapCategory;
   renderBandmap();
 });
 el.bandmapContent.addEventListener("click", (event) => {
+  const folder = event.target.closest(".folder-card[data-bandmap-category]");
+  if (folder) {
+    bandmapCategory = folder.dataset.bandmapCategory;
+    renderBandmap();
+    return;
+  }
   const button = event.target.closest("[data-scenario]");
   if (!button) return;
   applyPreset(button.dataset.scenario);
@@ -854,5 +903,11 @@ lastSpectrum = makeSpectrum(performance.now());
 drawSpectrum(lastSpectrum, performance.now());
 drawWaterfall(lastSpectrum);
 lastWaterfallDraw = performance.now();
-if (location.hash === "#bands") openBandmap();
+const bandHash = location.hash.match(/^#bands(?:\/([a-z-]+))?$/);
+if (bandHash) {
+  if (bandHash[1] && CATEGORIES.some((category) => category.id === bandHash[1])) {
+    bandmapCategory = bandHash[1];
+  }
+  openBandmap();
+}
 requestAnimationFrame(frame);

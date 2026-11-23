@@ -63,10 +63,12 @@ state and routes are live rather than pre-rendered.
 
 ### Band map model
 
-The page opens a big `Pick a band` sheet from the scope toolbar. Categories are
-Weather, Emergency, Satellites, Data & LoRa, Aviation, Marine, Broadcast, and
-Amateur. Each card carries a plain-language `copy` and a `hear` line: what the
-signal should sound like, not just a frequency.
+The page opens a big `Pick a band` sheet from the scope toolbar. It starts as a
+folder grid: Weather, Emergency, Satellites, Data & LoRa, Aviation, Marine,
+Broadcast, and Amateur. Selecting a folder shows its band cards, with an
+`All bands / Weather` breadcrumb back to the folder grid. Each card carries a
+plain-language `copy` and a `hear` line: what the signal should sound like, not
+just a frequency.
 
 `source/bandmap.soil` also carries regional tags (`us`, `europe`, `global`) and
 a GPS placeholder:
