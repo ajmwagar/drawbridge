@@ -6,6 +6,7 @@ members = [
   "crates/drawbridge-store",
   "crates/drawbridge-appservice",
   "crates/drawbridge-host",
+  "crates/drawbridge-meshcore",
 ]
 
 [workspace.package]

@@ -1,0 +1,15 @@
+[package]
+name = "drawbridge-meshcore"
+description = "MeshCore sidecar HTTP adapter for Drawbridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true

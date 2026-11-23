@@ -306,6 +306,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drawbridge-meshcore"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "drawbridge-store"
 version = "0.1.0"
 dependencies = [
