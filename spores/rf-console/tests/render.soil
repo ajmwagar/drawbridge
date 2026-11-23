@@ -1,0 +1,26 @@
+; SPDX-License-Identifier: MIT OR Apache-2.0
+; Pure checks for the Soil-rendered RF Deck. No browser, host, or network.
+
+(defun test-page-shell ()
+  (let ((html (rf/page)))
+    (and
+      (string-contains? html "<!doctype html>")
+      (string-contains? html "id=\"rf-state\"")
+      (string-contains? html "HackRF One")
+      (string-contains? html "data-device=\"meshcore\""))))
+
+(defun test-device-data ()
+  (let ((state (json-decode (rf/state-json))))
+    (and
+      (= (length (field state :devices)) 5)
+      (= (field (first (field state :devices)) :id) "hackrf")
+      (= (field (first (field state :presets)) :name) "NOAA WX"))))
+
+(defun test-escape ()
+  (= "&lt;script&gt;" (rf/esc "<script>")))
+
+(defun test/all ()
+  (list
+    (list :page (test-page-shell))
+    (list :data (test-device-data))
+    (list :escape (test-escape))))

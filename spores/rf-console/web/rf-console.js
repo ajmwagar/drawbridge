@@ -26,91 +26,9 @@ const WATER = [
   [232, 169, 75],
 ];
 
-const ICONS = {
-  sdr: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.35"><path d="M12 20V9"/><path d="M8 20h8"/><path d="M12 9c-2.8 0-5-2.2-5-5"/><path d="M12 9c2.8 0 5-2.2 5-5"/><path d="M12 9c-1.1 0-2-.9-2-2"/><path d="M12 9c1.1 0 2-.9 2-2"/></svg>`,
-  packet: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.35"><path d="m12 3 7 4v10l-7 4-7-4V7l7-4Z"/><path d="m5 7 7 4 7-4"/><path d="M12 11v10"/></svg>`,
-  atsc: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.35"><rect x="4" y="5" width="16" height="12" rx="1"/><path d="M9 21h6"/><path d="M12 17v4"/><path d="m8 9 3 3 3-3"/></svg>`,
-};
-
-const DEVICES = [
-  {
-    id: "hackrf",
-    name: "HackRF One",
-    code: "hackrf/78d0…",
-    kind: "sdr",
-    meta: "wideband · 2.0 MS/s",
-    noise: -104,
-    signals: [
-      { freq: 162.55, width: 0.0125, power: -41, label: "NOAA 7" },
-      { freq: 162.425, width: 0.0125, power: -63, label: "WX 2" },
-      { freq: 162.475, width: 0.0125, power: -71 },
-      { freq: 144.39, width: 0.012, power: -58, label: "APRS" },
-    ],
-    initial: { freq: 162.55, mode: "NFM", bw: 12.5, gain: 22, squelch: -92, span: 2, running: true, recording: false },
-  },
-  {
-    id: "adsb",
-    name: "RTL-SDR V4",
-    code: "rtl/00000001",
-    kind: "sdr",
-    meta: "1090 MHz · 2.4 MS/s",
-    noise: -102,
-    signals: [
-      { freq: 1090, width: 0.08, power: -48, label: "MODE-S" },
-      { freq: 1090.46, width: 0.12, power: -72 },
-    ],
-    initial: { freq: 1090, mode: "AM", bw: 200, gain: 38.6, squelch: -80, span: 5, running: true, recording: false },
-  },
-  {
-    id: "ais",
-    name: "RTL-SDR V3",
-    code: "rtl/00000002",
-    kind: "sdr",
-    meta: "marine · 2.4 MS/s",
-    noise: -106,
-    signals: [
-      { freq: 161.975, width: 0.025, power: -57, label: "AIS 1" },
-      { freq: 162.025, width: 0.025, power: -64, label: "AIS 2" },
-    ],
-    initial: { freq: 161.975, mode: "NFM", bw: 25, gain: 32, squelch: -96, span: 0.5, running: false, recording: false },
-  },
-  {
-    id: "meshcore",
-    name: "MeshCore",
-    code: "meshcore/69f5…",
-    kind: "packet",
-    meta: "packet radio · 350 contacts",
-    noise: -110,
-    signals: [
-      { freq: 915, width: 0.5, power: -62, label: "LORA" },
-      { freq: 915.52, width: 0.35, power: -73 },
-      { freq: 914.5, width: 0.3, power: -78 },
-    ],
-    initial: { freq: 915, mode: "NFM", bw: 125, gain: 18, squelch: -100, span: 2, running: true, recording: false },
-  },
-  {
-    id: "hdhr",
-    name: "HDHomeRun",
-    code: "hdhr/10626E55",
-    kind: "atsc",
-    meta: "broadcast · 2 tuners",
-    noise: -101,
-    signals: [
-      { freq: 533, width: 5.8, power: -57, label: "ATSC 533" },
-      { freq: 539, width: 5.8, power: -64 },
-      { freq: 527, width: 5.8, power: -70 },
-    ],
-    initial: { freq: 533, mode: "AM", bw: 200, gain: 0, squelch: -84, span: 10, running: false, recording: false },
-  },
-];
-
-const PRESETS = [
-  { name: "NOAA WX", device: "hackrf", freq: 162.55, mode: "NFM", bw: 12.5, span: 2, note: "Weather band · carrier centered" },
-  { name: "APRS", device: "hackrf", freq: 144.39, mode: "NFM", bw: 12.5, span: 0.5, note: "APRS · 1200 baud AFSK" },
-  { name: "AIS", device: "ais", freq: 161.975, mode: "NFM", bw: 25, span: 0.5, note: "Marine AIS · channel 1" },
-  { name: "ADS-B", device: "adsb", freq: 1090, mode: "AM", bw: 200, span: 5, note: "1090 MHz · Mode-S / ADS-B" },
-  { name: "MeshCore", device: "meshcore", freq: 915, mode: "NFM", bw: 125, span: 2, note: "LoRa packet · 915 MHz" },
-];
+const DATA = JSON.parse(document.getElementById("rf-state").textContent);
+const DEVICES = DATA.devices;
+const PRESETS = DATA.presets;
 
 const runtime = new Map(
   DEVICES.map((device) => [
@@ -168,13 +86,6 @@ const el = {
   waterfallWrap: $(".waterfall-wrap"),
 };
 
-let events = [
-  { time: "14:02:11", text: "NOAA 7 carrier acquired on HackRF One" },
-  { time: "14:01:48", text: "MeshCore advert heard · 3 hops" },
-  { time: "13:59:22", text: "ADS-B track 0x4CA2B1 resolved" },
-  { time: "13:57:05", text: "RTL-SDR V3 returned to idle" },
-];
-
 const device = () => DEVICES.find((item) => item.id === activeId);
 const settings = () => runtime.get(activeId);
 
@@ -210,50 +121,41 @@ function formatAxis(freq) {
   return formatFreq(freq, span >= 1 ? 2 : 3);
 }
 
-function makeDeviceRow(deviceItem) {
-  const state = runtime.get(deviceItem.id);
-  const active = deviceItem.id === activeId;
-  const stateClass = state.running ? "is-rx" : "is-idle";
-  const stateText = state.running ? "RX" : "IDLE";
-  return `
-    <button type="button" class="device-row${active ? " is-active" : ""}" data-device="${deviceItem.id}" role="option" aria-selected="${active}">
-      <span class="device-icon">${ICONS[deviceItem.kind]}</span>
-      <span class="device-copy">
-        <span class="device-name">${deviceItem.name}</span>
-        <span class="device-meta">${deviceItem.code}</span>
-      </span>
-      <span class="device-state ${stateClass}"><span class="status-dot" aria-hidden="true"></span>${stateText}</span>
-    </button>
-  `;
-}
-
 function renderDevices() {
-  el.deviceList.innerHTML = DEVICES.map(makeDeviceRow).join("");
   el.receiverCount.textContent = String(DEVICES.length).padStart(2, "0");
   el.deviceCount.textContent = `${DEVICES.length} devices`;
-}
-
-function renderEvents() {
-  el.events.innerHTML = events
-    .map((event) => `<li><time>${event.time}</time><span>${event.text}</span></li>`)
-    .join("");
+  for (const item of DEVICES) {
+    const button = el.deviceList.querySelector(`[data-device="${item.id}"]`);
+    if (!button) continue;
+    const state = runtime.get(item.id);
+    const active = item.id === activeId;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+    const stateEl = button.querySelector(".device-state");
+    if (stateEl) {
+      stateEl.className = `device-state ${state.running ? "is-rx" : "is-idle"}`;
+      stateEl.innerHTML = `<span class="status-dot" aria-hidden="true"></span>${state.running ? "RX" : "IDLE"}`;
+    }
+  }
 }
 
 function pushEvent(text) {
-  events.unshift({ time: nowUtc(), text });
-  events = events.slice(0, 5);
-  renderEvents();
+  const item = document.createElement("li");
+  const time = document.createElement("time");
+  time.textContent = nowUtc();
+  const span = document.createElement("span");
+  span.textContent = text;
+  item.append(time, span);
+  el.events.prepend(item);
+  while (el.events.children.length > 5) el.events.lastElementChild.remove();
 }
 
 function renderPresets() {
-  el.presetList.innerHTML = PRESETS.map(
-    (preset) => `
-      <button type="button" class="preset" data-preset="${preset.name}">
-        <span class="preset-name">${preset.name}</span>
-        <span class="preset-freq">${formatFreq(preset.freq)}</span>
-      </button>
-    `,
-  ).join("");
+  const state = settings();
+  el.presetList.querySelectorAll("[data-preset]").forEach((button) => {
+    const preset = PRESETS.find((item) => item.name === button.dataset.preset);
+    button.classList.toggle("is-current", preset?.device === activeId && preset?.freq === state.freq);
+  });
 }
 
 function resetSpectrumHistory() {
@@ -300,10 +202,7 @@ function syncControls() {
   }
 
   renderDevices();
-  el.presetList.querySelectorAll("[data-preset]").forEach((button) => {
-    const preset = PRESETS.find((item) => item.name === button.dataset.preset);
-    button.classList.toggle("is-current", preset?.device === activeId && preset?.freq === state.freq);
-  });
+  renderPresets();
 }
 
 function setActiveDevice(id, announce = true) {
@@ -831,7 +730,6 @@ setInterval(() => {
 }, 1000);
 
 renderDevices();
-renderEvents();
 renderPresets();
 resizeSpectrum();
 resizeWaterfall();

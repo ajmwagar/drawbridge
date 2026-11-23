@@ -1,0 +1,13 @@
+; SPDX-License-Identifier: MIT OR Apache-2.0
+; RF Deck source manifest. `tools/export.sh` renders web/index.html from
+; source/data.soil + source/ui.soil; the runtime surface stays a static web
+; package until the Soil HTTP component path is wired through Loam.
+(spore
+  (schema 1)
+  (kind "spore")
+  (id "dev.ajmwagar.rf-console")
+  (version "0.1.0")
+  (license "Apache-2.0 OR MIT")
+  (summary "A receiver console for SDRs, packet radios, and broadcast tuners")
+  (distribution "source")
+  (source "source/"))
