@@ -227,7 +227,12 @@
       (list :devices (rf/devices))
       (list :presets (rf/presets))
       (list :categories (rf/categories))
-      (list :gps (rf/gps)))))
+      (list :gps (rf/gps))
+      (list :scout
+        (list
+          (list :url "https://rfscout.myc/scout.json")
+          (list :fallback "scout.json")
+          (list :interval-ms 15000))))))
 
 (defun rf/page ()
   (let ((device (first (rf/devices)))
@@ -239,8 +244,8 @@
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
       "<meta name=\"color-scheme\" content=\"dark\">\n"
       "<title>RF Deck · Radioman console</title>\n"
-      "<link rel=\"stylesheet\" href=\"rf-console.css?v=scout1\">\n"
-      "<script type=\"module\" src=\"rf-console.js?v=scout1\"></script>\n"
+      "<link rel=\"stylesheet\" href=\"rf-console.css?v=scout2\">\n"
+      "<script type=\"module\" src=\"rf-console.js?v=scout2\"></script>\n"
       "</head>\n<body>\n"
       "<div class=\"app\">\n"
       "<header class=\"topbar\">\n"
@@ -249,7 +254,7 @@
       "<div class=\"topbar-status\">"
       "<span class=\"status-item\"><span class=\"status-dot is-live\" aria-hidden=\"true\"></span>"
       "<span id=\"device-count\">5 devices</span></span>"
-      "<span class=\"status-item sim-badge\">SIMULATED FEED</span>"
+      "<span class=\"status-item sim-badge\">SIMULATED SPECTRUM · LIVE SCOUT</span>"
       "<time id=\"utc-clock\" class=\"clock\">--:--:-- UTC</time></div>\n"
       "</header>\n"
       "<main class=\"console\">\n"

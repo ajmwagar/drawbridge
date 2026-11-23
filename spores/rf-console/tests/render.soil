@@ -21,7 +21,8 @@
       (= (field (first (field state :presets)) :name) "NOAA WX 7")
       (not (nil? (field (first (field state :presets)) :antenna)))
       (= (field (field state :gps) :fix) #f)
-      (not (nil? (field (first (field state :presets)) :hear))))))
+      (not (nil? (field (first (field state :presets)) :hear)))
+      (string-contains? (field (field state :scout) :url) "rfscout.myc"))))
 
 (defun test-escape ()
   (= "&lt;script&gt;" (rf/esc "<script>")))

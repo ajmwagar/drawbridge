@@ -31,7 +31,13 @@ const DEVICES = DATA.devices;
 const PRESETS = DATA.presets;
 const CATEGORIES = DATA.categories || [];
 const GPS = DATA.gps || { fix: false, region: "us", label: "Unknown region" };
+const SCOUT_CONFIG = DATA.scout || {};
+const SCOUT_URL = SCOUT_CONFIG.url || "https://rfscout.myc/scout.json";
+const SCOUT_FALLBACK = SCOUT_CONFIG.fallback || "scout.json";
+const SCOUT_INTERVAL = Number(SCOUT_CONFIG["interval-ms"] || SCOUT_CONFIG.interval_ms || 15000);
 let SCOUT = null;
+let SCOUT_LIVE = false;
+let SCOUT_LINK = "waiting";
 
 const runtime = new Map(
   DEVICES.map((device) => [
@@ -281,12 +287,40 @@ function scoutPresence(preset, reading) {
   return { snr: centerSnr, hz: Number(preset.freq) * 1e6, source: "center" };
 }
 
-function renderScout() {
-  const source = SCOUT ? `${SCOUT.source || "scout"} · ${SCOUT.antenna || "antenna"}` : "Scout · waiting";
-  const stamp = SCOUT?.scanned_at
+function scoutAgeSecs() {
+  const scanned = SCOUT?.scanned_at ? Date.parse(SCOUT.scanned_at) : NaN;
+  return Number.isFinite(scanned) ? Math.max(0, Math.round((Date.now() - scanned) / 1000)) : null;
+}
+
+function scoutStatusLabel() {
+  if (!SCOUT) return "Scout · waiting";
+  const source = `${SCOUT.source || "scout"} · ${SCOUT.antenna || "antenna"}`;
+  const stamp = SCOUT.scanned_at
     ? new Date(SCOUT.scanned_at).toISOString().slice(11, 16) + "Z"
-    : "no recent scan";
-  el.bandmapScout.textContent = SCOUT ? `${source} · ${stamp}` : "Scout · waiting";
+    : "no scan";
+  if (SCOUT_LIVE) {
+    const age = scoutAgeSecs();
+    if (age !== null && age > Math.max(60, SCOUT_INTERVAL * 4 / 1000)) {
+      return `${source} · STALE · ${stamp}`;
+    }
+    return `${source} · LIVE · ${stamp}`;
+  }
+  if (SCOUT.status === "offline") return `${source} · OFFLINE · last ${stamp}`;
+  if (SCOUT.status === "scanning") return `${source} · SCANNING · ${stamp}`;
+  if (SCOUT_LINK === "fallback") return `${source} · SNAPSHOT · ${stamp}`;
+  return `${source} · ${stamp}`;
+}
+
+function renderScout() {
+  el.bandmapScout.className = "bandmap-scout";
+  if (SCOUT_LIVE) {
+    const age = scoutAgeSecs();
+    const stale = age !== null && age > Math.max(60, SCOUT_INTERVAL * 4 / 1000);
+    el.bandmapScout.classList.add(stale ? "is-stale" : "is-live");
+  } else if (SCOUT?.status === "offline") {
+    el.bandmapScout.classList.add("is-offline");
+  }
+  el.bandmapScout.textContent = scoutStatusLabel();
 
   el.bandmapContent.querySelectorAll(".band-card").forEach((card) => {
     const name = card.dataset.scenario;
@@ -323,6 +357,8 @@ function renderScout() {
     chip.className = "folder-scout";
     if (!SCOUT) {
       chip.textContent = "Scout · waiting";
+    } else if (SCOUT.status === "offline" && !Object.keys(SCOUT.presets || {}).length) {
+      chip.textContent = "Scout · offline";
     } else {
       chip.textContent = `Scout · ${hits}/${entries.length} heard`;
       if (hits > 0) chip.classList.add("has-hits");
@@ -966,16 +1002,68 @@ lastSpectrum = makeSpectrum(performance.now());
 drawSpectrum(lastSpectrum, performance.now());
 drawWaterfall(lastSpectrum);
 lastWaterfallDraw = performance.now();
-fetch("scout.json", { cache: "no-store" })
-  .then((response) => (response.ok ? response.json() : null))
-  .then((data) => {
-    SCOUT = data;
+async function fetchScout(url) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`scout ${response.status}`);
+  return await response.json();
+}
+
+async function loadScout() {
+  if (document.hidden) return;
+  let live = null;
+  let liveError = null;
+  try {
+    live = await fetchScout(`${SCOUT_URL}${SCOUT_URL.includes("?") ? "&" : "?"}t=${Date.now()}`);
+  } catch (error) {
+    liveError = error;
+  }
+
+  if (
+    live &&
+    live.presets &&
+    Object.keys(live.presets).length &&
+    (live.status === "live" || live.scanned_at)
+  ) {
+    SCOUT = live;
+    SCOUT_LIVE = live.status === "live";
+    SCOUT_LINK = SCOUT_LIVE ? "live" : "cached";
     renderBandmap();
-  })
-  .catch(() => {
-    SCOUT = null;
-    renderBandmap();
-  });
+    return;
+  }
+
+  try {
+    const fallback = await fetchScout(`${SCOUT_FALLBACK}?t=${Date.now()}`);
+    if (fallback?.presets) {
+      SCOUT = fallback;
+      SCOUT_LIVE = false;
+      SCOUT_LINK = "fallback";
+      renderBandmap();
+      return;
+    }
+  } catch (_fallbackError) {
+    // fall through with the last known reading
+  }
+
+  if (SCOUT) {
+    SCOUT_LIVE = false;
+    if (live?.status === "offline") {
+      SCOUT = live;
+      SCOUT_LINK = "cached";
+    } else {
+      SCOUT_LINK = "stale";
+    }
+  } else if (live?.status === "offline") {
+    SCOUT = live;
+    SCOUT_LINK = "offline";
+  }
+  if (liveError) SCOUT_LINK = "offline";
+  renderBandmap();
+}
+
+loadScout();
+if (Number.isFinite(SCOUT_INTERVAL) && SCOUT_INTERVAL >= 3000) {
+  setInterval(loadScout, SCOUT_INTERVAL);
+}
 
 const bandHash = location.hash.match(/^#bands(?:\/([a-z-]+))?$/);
 if (bandHash) {

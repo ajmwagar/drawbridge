@@ -1731,3 +1731,37 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
+
+.bandmap-scout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bandmap-scout.is-live::before,
+.bandmap-scout.is-stale::before,
+.bandmap-scout.is-offline::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.bandmap-scout.is-live {
+  color: var(--good);
+}
+
+.bandmap-scout.is-live::before {
+  animation: scout-pulse 1.8s ease-out infinite;
+}
+
+.bandmap-scout.is-stale,
+.bandmap-scout.is-offline {
+  color: var(--sim);
+}
+
+@keyframes scout-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
