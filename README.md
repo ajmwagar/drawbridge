@@ -20,6 +20,7 @@ provenance.
 | [`drawbridge-matrix`](crates/drawbridge-matrix) | Application-service client: registration bundle, ghost namespace checks, room creation/recovery, idempotent sends, media, transaction parsing. |
 | [`drawbridge-store`](crates/drawbridge-store) | Single-writer SQLite with WAL, process lock, key check, XChaCha20-Poly1305 payload encryption, generic bindings/links/cursors/dedupe tables. |
 | [`drawbridge-appservice`](crates/drawbridge-appservice) | Axum surface: both application-service transaction paths, constant-time `hs_token` check, body bounds, health/readiness/metrics. |
+| [`drawbridge-host`](crates/drawbridge-host) | Line-delimited JSON host for the Loam sidecar: request/response framing and dispatch behind a `Backend` trait. |
 
 ## Design rules
 

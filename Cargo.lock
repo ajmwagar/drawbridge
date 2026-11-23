@@ -280,6 +280,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drawbridge-host"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "drawbridge-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "drawbridge-matrix"
 version = "0.1.0"
 dependencies = [

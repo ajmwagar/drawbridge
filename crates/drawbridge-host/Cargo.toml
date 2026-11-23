@@ -1,0 +1,20 @@
+[package]
+name = "drawbridge-host"
+description = "Line-delimited JSON host used by the Drawbridge Loam sidecar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait = "0.1"
+drawbridge-core = { path = "../drawbridge-core" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
