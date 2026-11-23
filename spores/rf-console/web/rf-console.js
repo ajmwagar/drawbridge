@@ -453,9 +453,12 @@ function syncControls() {
 
 function setFeedBadge() {
   if (!el.feedBadge) return;
-  el.feedBadge.textContent = SDR_LIVE
-    ? "LIVE SDR · LIVE SCOUT"
-    : "SIMULATED SPECTRUM · LIVE SCOUT";
+  const scoutLabel = SCOUT_LINK === "live"
+    ? "LIVE SCOUT"
+    : SCOUT
+      ? "SCOUT SNAPSHOT"
+      : "SCOUT OFFLINE";
+  el.feedBadge.textContent = `${SDR_LIVE ? "LIVE SDR" : "SIMULATED SPECTRUM"} · ${scoutLabel}`;
   el.tuneNote.textContent = SDR_LIVE
     ? "Live SoapySDR · drag to tune"
     : "Simulated receiver · drag to tune";

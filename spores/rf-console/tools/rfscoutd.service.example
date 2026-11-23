@@ -1,5 +1,5 @@
 [Unit]
-Description=RF Console tinySA + SoapySDR bridge
+Description=RF Console native TinySA + SDR bridge
 After=network-online.target
 
 [Service]
@@ -12,7 +12,7 @@ ExecStartPre=+/bin/sh -c '/usr/bin/usbreset 0bda:2838 >/dev/null 2>&1 || true'
 # device's group (often dialout) or use a udev rule instead of root.
 User=radioman
 WorkingDirectory=/opt/rf-console
-ExecStart=/usr/bin/python3 /opt/rf-console/scoutd.py \
+ExecStart=/opt/rf-console/rf-bridge \
   --listen 0.0.0.0:8798 \
   --port /dev/ttyACM1 \
   --page /opt/rf-console/index.html \
