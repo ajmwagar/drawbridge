@@ -1,0 +1,17 @@
+[package]
+name = "drawbridge-matrix"
+description = "Matrix application-service client primitives for Drawbridge bridges"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+drawbridge-core = { path = "../drawbridge-core" }
+regex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true

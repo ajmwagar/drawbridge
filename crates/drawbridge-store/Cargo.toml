@@ -1,0 +1,23 @@
+[package]
+name = "drawbridge-store"
+description = "Durable, idempotent SQLite storage for Drawbridge bridges"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+chacha20poly1305.workspace = true
+drawbridge-core = { path = "../drawbridge-core" }
+fs2.workspace = true
+rand.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

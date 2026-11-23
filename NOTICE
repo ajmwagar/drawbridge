@@ -1,0 +1,17 @@
+Drawbridge
+Copyright 2026 Avery Wagar and contributors
+Licensed under the Apache License, Version 2.0; see LICENSE.
+
+The Matrix application-service client, SQLite store, stable-identifier helper,
+secret loading and transaction surface were extracted from
+FuturePresentLabs/rakazo-beeper (Apache-2.0), commit 704e1c9d6cb9:
+  src/matrix.rs
+  src/store.rs
+  src/config.rs
+  src/service.rs
+  src/lib.rs (stable_id)
+The Beeper/Rakazo-specific room policy, avatar renderer, acknowledgement
+discipline and agent orchestration were intentionally left behind.
+
+MeshCore is a separate project by its own contributors. Drawbridge only speaks
+its companion/HTTP sidecar protocol; no MeshCore firmware is vendored here.
