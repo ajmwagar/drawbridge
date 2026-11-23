@@ -29,6 +29,8 @@ const WATER = [
 const DATA = JSON.parse(document.getElementById("rf-state").textContent);
 const DEVICES = DATA.devices;
 const PRESETS = DATA.presets;
+const CATEGORIES = DATA.categories || [];
+const GPS = DATA.gps || { fix: false, region: "us", label: "Unknown region" };
 
 const runtime = new Map(
   DEVICES.map((device) => [
@@ -41,7 +43,8 @@ const runtime = new Map(
 );
 
 let activeId = "hackrf";
-let activeGroup = "all";
+let bandmapCategory = "weather";
+let bandmapRegion = "auto";
 let hoveredFreq = null;
 let dragging = false;
 let sessionSeconds = 42 * 60 + 17;
@@ -74,11 +77,16 @@ const el = {
   squelchValue: $("#squelch-value"),
   signalValue: $("#signal-value"),
   meterFill: $("#meter-fill"),
-  scenarioList: $("#scenario-list"),
-  bandGroups: $("#band-groups"),
-  bandCount: $("#band-count"),
-  bandPrev: $("#band-prev"),
-  bandNext: $("#band-next"),
+  bandPicker: $("#band-picker"),
+  bandmap: $("#bandmap"),
+  bandmapClose: $("#bandmap-close"),
+  bandmapNav: $("#bandmap-nav"),
+  bandmapContent: $("#bandmap-content"),
+  bandmapRegion: $("#bandmap-region"),
+  bandmapGps: $("#bandmap-gps"),
+  bandmapCount: $("#bandmap-count"),
+  bandmapPrev: $("#bandmap-prev"),
+  bandmapNext: $("#bandmap-next"),
   recordToggle: $("#record-toggle"),
   recordNote: $("#record-note"),
   statusLabel: $("#status-label"),
@@ -155,26 +163,64 @@ function pushEvent(text) {
   while (el.events.children.length > 5) el.events.lastElementChild.remove();
 }
 
-function visiblePresets() {
-  return activeGroup === "all" ? PRESETS : PRESETS.filter((preset) => preset.group === activeGroup);
+function selectedRegion() {
+  if (bandmapRegion === "auto") return GPS.region || "us";
+  if (bandmapRegion === "all") return null;
+  return bandmapRegion;
 }
 
-function renderScenarios() {
+function matchesRegion(preset, region) {
+  if (!region) return true;
+  const regions = preset.regions || [];
+  return regions.includes("global") || regions.includes(region);
+}
+
+function visibleBandmapPresets() {
+  const region = selectedRegion();
+  return PRESETS.filter(
+    (preset) =>
+      (bandmapCategory === "all" || preset.category === bandmapCategory) &&
+      matchesRegion(preset, region),
+  );
+}
+
+function renderBandmap() {
   const state = settings();
-  const visible = visiblePresets();
-  el.bandCount.textContent = String(visible.length).padStart(2, "0");
-  el.bandGroups.querySelectorAll("[data-band-group]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.bandGroup === activeGroup);
+  const visible = visibleBandmapPresets();
+  const names = new Set(visible.map((preset) => preset.name));
+
+  el.bandmapNav.querySelectorAll("[data-bandmap-category]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.bandmapCategory === bandmapCategory);
   });
-  el.scenarioList.querySelectorAll("[data-scenario]").forEach((button) => {
-    const preset = PRESETS.find((item) => item.name === button.dataset.scenario);
-    button.hidden = activeGroup !== "all" && preset?.group !== activeGroup;
-    button.classList.toggle("is-current", preset?.device === activeId && preset?.freq === state.freq);
+
+  el.bandmapContent.querySelectorAll("[data-bandmap-group]").forEach((group) => {
+    group.hidden = bandmapCategory !== "all" && group.dataset.bandmapGroup !== bandmapCategory;
   });
+
+  el.bandmapContent.querySelectorAll(".band-card").forEach((card) => {
+    const button = card.querySelector("[data-scenario]");
+    const preset = PRESETS.find((item) => item.name === button?.dataset.scenario);
+    card.hidden = !preset || !names.has(preset.name);
+    card.classList.toggle(
+      "is-current",
+      Boolean(preset && preset.device === activeId && preset.freq === state.freq),
+    );
+  });
+
+  el.bandmapContent.querySelectorAll("[data-bandmap-group]").forEach((group) => {
+    if (!group.hidden && !group.querySelector(".band-card:not([hidden])")) {
+      group.hidden = true;
+    }
+  });
+
+  el.bandmapCount.textContent = `${visible.length} place${visible.length === 1 ? "" : "s"}`;
+  el.bandmapGps.textContent = GPS.fix
+    ? `GPS fix · ${GPS.label}`
+    : `No GPS fix · ${GPS.label}`;
 }
 
-function stepScenario(direction) {
-  const list = visiblePresets();
+function stepBandmap(direction) {
+  const list = visibleBandmapPresets();
   if (!list.length) return;
   const index = list.findIndex(
     (preset) => preset.device === activeId && preset.freq === settings().freq,
@@ -183,6 +229,21 @@ function stepScenario(direction) {
     ? (direction > 0 ? 0 : list.length - 1)
     : (index + direction + list.length) % list.length;
   applyPreset(list[next].name);
+  renderBandmap();
+}
+
+function openBandmap() {
+  el.bandmap.hidden = false;
+  document.body.classList.add("bandmap-open");
+  renderBandmap();
+  el.bandmapClose.focus();
+}
+
+function closeBandmap() {
+  if (el.bandmap.hidden) return;
+  el.bandmap.hidden = true;
+  document.body.classList.remove("bandmap-open");
+  el.bandPicker.focus();
 }
 
 function resetSpectrumHistory() {
@@ -229,7 +290,7 @@ function syncControls() {
   }
 
   renderDevices();
-  renderScenarios();
+  renderBandmap();
 }
 
 function setActiveDevice(id, announce = true) {
@@ -599,6 +660,7 @@ function frame(now) {
 drawSpectrum(lastSpectrum, performance.now());
 drawWaterfall(lastSpectrum);
 lastWaterfallDraw = performance.now();
+if (location.hash === "#bands") openBandmap();
 requestAnimationFrame(frame);
 }
 
@@ -624,20 +686,29 @@ el.deviceList.addEventListener("click", (event) => {
   if (button) setActiveDevice(button.dataset.device);
 });
 
-el.scenarioList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-scenario]");
-  if (button) applyPreset(button.dataset.scenario);
+el.bandPicker.addEventListener("click", openBandmap);
+el.bandmapClose.addEventListener("click", closeBandmap);
+el.bandmap.addEventListener("click", (event) => {
+  if (event.target.closest("[data-bandmap-close]")) closeBandmap();
 });
-
-el.bandGroups.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-band-group]");
+el.bandmapNav.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-bandmap-category]");
   if (!button) return;
-  activeGroup = button.dataset.bandGroup;
-  renderScenarios();
+  bandmapCategory = button.dataset.bandmapCategory;
+  renderBandmap();
 });
-
-el.bandPrev.addEventListener("click", () => stepScenario(-1));
-el.bandNext.addEventListener("click", () => stepScenario(1));
+el.bandmapContent.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-scenario]");
+  if (!button) return;
+  applyPreset(button.dataset.scenario);
+  closeBandmap();
+});
+el.bandmapRegion.addEventListener("change", () => {
+  bandmapRegion = el.bandmapRegion.value;
+  renderBandmap();
+});
+el.bandmapPrev.addEventListener("click", () => stepBandmap(-1));
+el.bandmapNext.addEventListener("click", () => stepBandmap(1));
 
 el.modeGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-mode]");
@@ -734,6 +805,13 @@ spectrumCanvas.addEventListener(
 );
 
 window.addEventListener("keydown", (event) => {
+  if (!el.bandmap.hidden) {
+    if (event.code === "Escape") {
+      event.preventDefault();
+      closeBandmap();
+    }
+    return;
+  }
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
   if (event.code === "Space") {
     event.preventDefault();
@@ -767,7 +845,7 @@ setInterval(() => {
 }, 1000);
 
 renderDevices();
-renderScenarios();
+renderBandmap();
 resizeSpectrum();
 resizeWaterfall();
 syncControls();
@@ -776,4 +854,5 @@ lastSpectrum = makeSpectrum(performance.now());
 drawSpectrum(lastSpectrum, performance.now());
 drawWaterfall(lastSpectrum);
 lastWaterfallDraw = performance.now();
+if (location.hash === "#bands") openBandmap();
 requestAnimationFrame(frame);

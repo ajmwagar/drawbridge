@@ -21,5 +21,6 @@ fi
   --prelude "$SOIL_ROOT/core/prelude.soil" \
   "$SOIL_ROOT/core/ui.soil" \
   source/data.soil \
+  source/bandmap.soil \
   source/ui.soil \
   --call main > web/index.html

@@ -357,148 +357,460 @@ input:focus-visible {
   background: var(--accent);
 }
 
-.band-explorer {
-  border-top: 1px solid var(--line-soft);
-  padding-bottom: 8px;
+.band-picker {
+  appearance: none;
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.band-nav {
+.band-picker:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+body.bandmap-open {
+  overflow: hidden;
+}
+
+.bandmap {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
   display: flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  padding: 24px;
 }
 
-.band-nav button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
+.bandmap[hidden] {
+  display: none;
+}
+
+.bandmap-backdrop {
+  position: absolute;
+  inset: 0;
+  background: oklch(0.08 0.01 160 / 0.8);
+  backdrop-filter: blur(5px);
+}
+
+.bandmap-sheet {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, 100%);
+  max-height: min(880px, calc(100dvh - 48px));
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 0 24px 80px oklch(0.05 0.01 160 / 0.7);
+}
+
+.bandmap-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bandmap-head > div {
+  min-width: 0;
+}
+
+.bandmap-head h2 {
+  overflow-wrap: anywhere;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(27px, 4vw, 42px);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+}
+
+.bandmap-lede {
+  max-width: 72ch;
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.bandmap-close {
+  flex: none;
+  padding: 7px 10px;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
   font-family: var(--font-display);
-  font-size: 13px;
-  line-height: 1;
+  font-size: 9px;
   cursor: pointer;
 }
 
-.band-nav button:hover {
+.bandmap-close:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-#band-count {
-  min-width: 18px;
-  color: var(--faint);
+.bandmap-regionbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--panel-2);
   font-family: var(--font-display);
   font-size: 8px;
-  text-align: center;
+  letter-spacing: 0.04em;
 }
 
-.band-groups {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
-  padding: 0 12px 7px;
-}
-
-.band-group {
-  appearance: none;
-  padding: 3px 1px;
-  border: 1px solid var(--line-soft);
-  background: transparent;
-  color: var(--faint);
-  font-family: var(--font-display);
-  font-size: 7px;
-  letter-spacing: 0.08em;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.band-group:hover {
-  border-color: var(--faint);
-  color: var(--muted);
-}
-
-.band-group.is-active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.scenario-list {
-  max-height: 218px;
-  overflow-y: auto;
-  padding: 0 8px;
-  scrollbar-color: var(--line) transparent;
-  scrollbar-width: thin;
-}
-
-.scenario {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+.bandmap-field {
+  display: inline-flex;
   align-items: center;
-  width: 100%;
-  padding: 6px 7px;
-  border: 0;
-  border-left: 1px solid transparent;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
+  gap: 7px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-.scenario:hover,
-.scenario.is-current {
-  border-left-color: var(--accent);
-  background: var(--panel-2);
+.bandmap-field select {
+  min-width: 130px;
+  padding: 4px 6px;
+  font-size: 8px;
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
 
-.scenario[hidden] {
-  display: none;
+.bandmap-gps {
+  color: var(--sim);
 }
 
-.scenario-copy {
+.bandmap-count {
+  margin-left: auto;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.bandmap-body {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+.bandmap-nav {
   display: flex;
-  min-width: 0;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 10px;
+  border-right: 1px solid var(--line-soft);
 }
 
-.scenario-name {
-  overflow: hidden;
+.bandmap-tab {
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
   color: var(--muted);
   font-family: var(--font-display);
   font-size: 9px;
-  text-overflow: ellipsis;
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.scenario.is-current .scenario-name {
+.bandmap-tab:hover {
+  background: var(--panel-2);
+  color: var(--ink);
+}
+
+.bandmap-tab.is-active {
+  border-left-color: var(--accent);
+  background: var(--panel-2);
   color: var(--accent);
 }
 
-.scenario-meta {
-  overflow: hidden;
-  color: var(--faint);
-  font-family: var(--font-display);
-  font-size: 7px;
-  letter-spacing: 0.04em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.bandmap-content {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 18px 22px 30px;
 }
 
-.scenario-freq {
+.bandmap-group {
+  margin-bottom: 28px;
+}
+
+.bandmap-group:last-child {
+  margin-bottom: 0;
+}
+
+.bandmap-group-head {
+  margin-bottom: 12px;
+}
+
+.bandmap-group-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.bandmap-group-head p {
+  max-width: 72ch;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.bandmap-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 9px;
+}
+
+.band-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-2);
+}
+
+.band-card.is-current {
+  border-color: var(--accent);
+}
+
+.band-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.band-card-head > div {
+  min-width: 0;
+}
+
+.band-card h4 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.band-card-freq {
+  margin: 3px 0 0;
   color: var(--faint);
   font-family: var(--font-display);
   font-size: 8px;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  letter-spacing: 0.03em;
 }
 
-.scenario.is-current .scenario-freq {
-  color: var(--accent-2);
+.band-card-tune {
+  flex: none;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.band-card-tune:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.band-card-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.band-card-hear {
+  margin: 0;
+  padding-left: 9px;
+  border-left: 2px solid var(--accent);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.band-card-hear span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 7px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.band-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 7px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 7px;
+  letter-spacing: 0.05em;
+}
+
+.bandmap-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.bandmap-foot > span {
+  max-width: 70ch;
+}
+
+.bandmap-foot > div {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.bandmap-step {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.bandmap-step:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .bandmap {
+    padding: 0;
+  }
+
+  .bandmap-sheet {
+    width: 100%;
+    max-height: 100dvh;
+    height: 100dvh;
+    border: 0;
+  }
+
+  .bandmap-head {
+    position: relative;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    padding-right: 74px;
+  }
+
+  .bandmap-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+  }
+
+  .bandmap-head h2 {
+    font-size: 30px;
+  }
+
+  .bandmap-regionbar {
+    gap: 8px 12px;
+    padding: 10px 16px;
+  }
+
+  .bandmap-gps {
+    width: 100%;
+  }
+
+  .bandmap-count {
+    margin-left: 0;
+  }
+
+  .bandmap-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bandmap-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    overflow: visible;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .bandmap-tab {
+    padding: 7px 2px;
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .bandmap-tab.is-active {
+    border-left-color: transparent;
+    border-bottom-color: var(--accent);
+  }
+
+  .bandmap-content {
+    padding: 14px 16px 24px;
+  }
+
+  .bandmap-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .bandmap-foot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .bandmap-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .rail-events {

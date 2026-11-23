@@ -13,9 +13,12 @@
   (let ((state (json-decode (rf/state-json))))
     (and
       (= (length (field state :devices)) 5)
-      (= (length (field state :presets)) 23)
+      (= (length (field state :presets)) 24)
+      (= (length (field state :categories)) 9)
       (= (field (first (field state :devices)) :id) "hackrf")
-      (= (field (first (field state :presets)) :name) "NOAA WX 7"))))
+      (= (field (first (field state :presets)) :name) "NOAA WX 7")
+      (= (field (field state :gps) :fix) #f)
+      (not (nil? (field (first (field state :presets)) :hear))))))
 
 (defun test-escape ()
   (= "&lt;script&gt;" (rf/esc "<script>")))

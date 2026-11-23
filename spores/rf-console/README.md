@@ -11,7 +11,8 @@ This is a UI prototype. Every reading is generated locally and labelled
 Most of the page is Soil now:
 
 ```text
-source/data.soil     receivers, signals, 23 band scenarios, initial events
+source/data.soil     receivers, signals, initial events
+source/bandmap.soil  24 band-map places, categories, regional copy, GPS state
 source/ui.soil       HTML shell, rail, scope, inspector, controls
 tests/render.soil    pure page/data/escape checks
 web/rf-console.js    canvas spectrum + waterfall and in-place DOM updates
@@ -47,12 +48,40 @@ high-frequency drawing and pointer handling in JavaScript.
 ./tools/export.sh
 ```
 
-This runs the Soil interpreter over `source/data.soil` and `source/ui.soil`
-and writes `web/index.html`.
+This runs the Soil interpreter over `source/data.soil`, `source/bandmap.soil`,
+and `source/ui.soil`, then writes `web/index.html`.
+
+Run the pure checks with:
+
+```sh
+./tests/run.sh
+```
 
 The current package still uses a static Loam web surface. The next step is to
 serve the same Soil page through a Soil HTTP/streams component so the receiver
 state and routes are live rather than pre-rendered.
+
+### Band map model
+
+The page opens a big `Pick a band` sheet from the scope toolbar. Categories are
+Weather, Emergency, Satellites, Data & LoRa, Aviation, Marine, Broadcast, and
+Amateur. Each card carries a plain-language `copy` and a `hear` line: what the
+signal should sound like, not just a frequency.
+
+`source/bandmap.soil` also carries regional tags (`us`, `europe`, `global`) and
+a GPS placeholder:
+
+```lisp
+(defun rf/gps ()
+  (list (list :fix #f)
+        (list :source "MeshCore GPS")
+        (list :region "us")
+        (list :label "US / Pacific NW")
+        ...))
+```
+
+No fix means the region selector falls back to the last known region. A real
+MeshCore GPS position can replace this without changing the page shape.
 
 ## Run the UI
 

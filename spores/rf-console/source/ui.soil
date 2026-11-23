@@ -60,43 +60,109 @@
 (defun rf/mode-buttons (modes)
   (string-join (map 'rf/mode-button modes) ""))
 
-(defun rf/group-button (group active?)
-  (str "<button type=\"button\" class=\"band-group"
-       (if active? " is-active" "") "\" data-band-group=\""
-       (attr-escape (field group :id)) "\">" (rf/fill (field group :label)) "</button>"))
+(defun rf/category-button (category active?)
+  (str "<button type=\"button\" class=\"bandmap-tab"
+       (if active? " is-active" "") "\" data-bandmap-category=\""
+       (attr-escape (field category :id)) "\">"
+       (rf/fill (field category :label)) "</button>"))
 
-(defun rf/group-buttons (groups first?)
-  (if (nil? groups)
+(defun rf/category-buttons (categories first?)
+  (if (nil? categories)
       ""
       (str
-        (rf/group-button (first groups) first?)
-        (rf/group-buttons (rest groups) #f))))
+        (rf/category-button (first categories) first?)
+        (rf/category-buttons (rest categories) #f))))
 
-(defun rf/scenario-row (preset current?)
-  (str
-    "<button type=\"button\" class=\"scenario"
-    (if current? " is-current" "")
-    "\" data-scenario=\"" (attr-escape (field preset :name))
-    "\" data-group=\"" (attr-escape (field preset :group)) "\">"
-    "<span class=\"scenario-copy\">"
-    "<span class=\"scenario-name\">" (rf/fill (field preset :name)) "</span>"
-    "<span class=\"scenario-meta\">" (rf/fill (field preset :tag)) " · "
-    (rf/fill (field preset :mode)) "</span></span>"
-    "<span class=\"scenario-freq\">" (rf/fill (field preset :freq-label)) "</span>"
-    "</button>"))
+(defun rf/region-label (region)
+  (cond
+    ((= region "us") "US")
+    ((= region "europe") "EU")
+    ((= region "global") "GLOBAL")
+    (else region)))
 
-(defun rf/scenario-rows (presets first?)
+(defun rf/region-labels (regions)
+  (string-join (map 'rf/region-label regions) " · "))
+
+(defun rf/category-presets (presets category)
   (if (nil? presets)
+      nil
+      (if (= (field (first presets) :category) category)
+          (cons (first presets) (rf/category-presets (rest presets) category))
+          (rf/category-presets (rest presets) category))))
+
+(defun rf/band-card (preset)
+  (str
+    "<article class=\"band-card\" data-category=\"" (attr-escape (field preset :category))
+    "\" data-regions=\"" (attr-escape (string-join (field preset :regions) ",")) "\">"
+    "<div class=\"band-card-head\"><div>"
+    "<h4>" (rf/fill (field preset :name)) "</h4>"
+    "<p class=\"band-card-freq\">" (rf/fill (field preset :freq-label)) " MHz · "
+    (rf/fill (field preset :mode)) " · " (rf/fill (field preset :bw)) " kHz</p></div>"
+    "<button type=\"button\" class=\"band-card-tune\" data-scenario=\""
+    (attr-escape (field preset :name)) "\">Tune</button></div>"
+    "<p class=\"band-card-copy\">" (rf/fill (field preset :copy)) "</p>"
+    "<p class=\"band-card-hear\"><span>Listen for</span>"
+    (rf/fill (field preset :hear)) "</p>"
+    "<div class=\"band-card-foot\"><span>" (rf/fill (field preset :tag)) "</span>"
+    "<span>" (rf/fill (rf/region-labels (field preset :regions))) "</span></div>"
+    "</article>"))
+
+(defun rf/band-cards (presets)
+  (string-join (map 'rf/band-card presets) ""))
+
+(defun rf/band-group (category presets)
+  (let ((items (rf/category-presets presets (field category :id))))
+    (str "<section class=\"bandmap-group\" data-bandmap-group=\""
+         (attr-escape (field category :id)) "\""
+         (if (= (field category :id) "weather") "" " hidden") ">"
+         "<div class=\"bandmap-group-head\"><h3>" (rf/fill (field category :label)) "</h3>"
+         "<p>" (rf/fill (field category :intro)) "</p></div>"
+         "<div class=\"bandmap-cards\">" (rf/band-cards items) "</div></section>")))
+
+(defun rf/band-groups (categories presets)
+  (if (nil? categories)
       ""
-      (str
-        (rf/scenario-row (first presets) first?)
-        (rf/scenario-rows (rest presets) #f))))
+      (if (= (field (first categories) :id) "all")
+          (rf/band-groups (rest categories) presets)
+          (str
+            (rf/band-group (first categories) presets)
+            (rf/band-groups (rest categories) presets)))))
+
+(defun rf/bandmap ()
+  (str
+    "<div class=\"bandmap\" id=\"bandmap\" hidden>"
+    "<div class=\"bandmap-backdrop\" data-bandmap-close></div>"
+    "<section class=\"bandmap-sheet\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"bandmap-title\">"
+    "<header class=\"bandmap-head\"><div>"
+    "<p class=\"eyebrow\">Band map · simulated receiver</p>"
+    "<h2 id=\"bandmap-title\">What do you want to hear?</h2>"
+    "<p class=\"bandmap-lede\">Pick a place to start. Each card tunes the selected receiver and explains what should be there before you know the numbers.</p>"
+    "</div><button type=\"button\" class=\"bandmap-close\" id=\"bandmap-close\">Close</button></header>"
+    "<div class=\"bandmap-regionbar\">"
+    "<label class=\"bandmap-field\"><span>Region</span>"
+    "<select id=\"bandmap-region\"><option value=\"auto\">Auto · GPS</option>"
+    "<option value=\"all\">All regions</option><option value=\"us\">United States</option>"
+    "<option value=\"europe\">Europe</option></select></label>"
+    "<span class=\"bandmap-gps\" id=\"bandmap-gps\">No GPS fix · "
+    (rf/fill (field (rf/gps) :label)) "</span>"
+    "<span class=\"bandmap-count\" id=\"bandmap-count\">24 places</span></div>"
+    "<div class=\"bandmap-body\">"
+    "<nav class=\"bandmap-nav\" id=\"bandmap-nav\" aria-label=\"Band categories\">"
+    (rf/category-buttons (rf/categories) #f) "</nav>"
+    "<div class=\"bandmap-content\" id=\"bandmap-content\">"
+    (rf/band-groups (rf/categories) (rf/presets)) "</div></div>"
+    "<footer class=\"bandmap-foot\"><span>Frequencies are starting points. Antenna, location, and time of day decide what is actually audible.</span>"
+    "<div><button type=\"button\" class=\"bandmap-step\" id=\"bandmap-prev\">‹ Previous</button>"
+    "<button type=\"button\" class=\"bandmap-step\" id=\"bandmap-next\">Next ›</button></div></footer>"
+    "</section></div>"))
 
 (defun rf/state-json ()
   (json-encode
     (list
       (list :devices (rf/devices))
-      (list :presets (rf/presets)))))
+      (list :presets (rf/presets))
+      (list :categories (rf/categories))
+      (list :gps (rf/gps)))))
 
 (defun rf/page ()
   (let ((device (first (rf/devices)))
@@ -127,15 +193,6 @@
       "<div class=\"device-list\" id=\"device-list\" role=\"listbox\" aria-label=\"Select a receiver\">"
       (rf/device-rows (rf/devices) (field device :id))
       "</div>\n"
-      "<section class=\"band-explorer\" aria-label=\"Band explorer\">"
-      "<div class=\"rail-head\"><h2>Band explorer</h2>"
-      "<div class=\"band-nav\"><button type=\"button\" id=\"band-prev\" aria-label=\"Previous scenario\">‹</button>"
-      "<span id=\"band-count\">23</span>"
-      "<button type=\"button\" id=\"band-next\" aria-label=\"Next scenario\">›</button></div></div>"
-      "<div class=\"band-groups\" id=\"band-groups\" role=\"group\" aria-label=\"Band groups\">"
-      (rf/group-buttons (rf/groups) #t) "</div>"
-      "<div class=\"scenario-list\" id=\"scenario-list\" aria-label=\"Scenarios\">"
-      (rf/scenario-rows (rf/presets) #t) "</div></section>\n"
       "<section class=\"rail-events\" aria-label=\"Recent events\">"
       "<div class=\"rail-head\"><h2>Recent</h2><span class=\"count\">LIVE</span></div>"
       "<ol class=\"events\" id=\"events\">" (rf/event-rows (rf/events)) "</ol></section>\n"
@@ -147,6 +204,7 @@
       "<p class=\"receiver-meta\" id=\"receiver-meta\">" (rf/fill (field device :code)) " · "
       (rf/fill (field device :meta)) "</p></div>\n"
       "<div class=\"scope-actions\">"
+      "<button type=\"button\" class=\"band-picker\" id=\"band-picker\">Pick a band</button>"
       "<label class=\"field-compact\" for=\"span\"><span>Span</span>"
       "<select id=\"span\"><option value=\"0.5\">0.5 MHz</option><option value=\"1\">1 MHz</option>"
       "<option value=\"2\" selected>2 MHz</option><option value=\"5\">5 MHz</option>"
@@ -217,6 +275,7 @@
       "<span>IQ <b>2.000 MS/s · ci8</b></span>"
       "<span class=\"statusbar-end\">LOAM / RF CONSOLE v0</span></footer>\n"
       "</div>\n"
+      (rf/bandmap)
       "<script id=\"rf-state\" type=\"application/json\">" (rf/state-json) "</script>\n"
       "</body>\n</html>\n")))
 
