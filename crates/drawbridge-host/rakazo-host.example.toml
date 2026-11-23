@@ -1,0 +1,9 @@
+database = "data/rakazo-host.db"
+encryption_key_env = "RAKAZO_HOST_KEY"
+tenant = "personal"
+bots = ["YOUR_BOT_ID"]
+
+[rakazo]
+url = "https://agents.fpl.dev"
+token_env = "RAKAZO_TOKEN"
+space_id_env = "RAKAZO_SPACE_ID"

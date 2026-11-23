@@ -27,8 +27,21 @@ commit
 rollback
 ```
 
-The host owns the sidecar token, the SQLite database key and the claim/cursor
-store. The Spore sees neither credential.
+The host owns the sidecar/Rakazo token, the SQLite database key and the
+claim/cursor store. The Spore sees neither credential.
+
+## Rakazo
+
+```sh
+cargo run -p drawbridge-host --bin rakazo-host -- --config rakazo-host.example.toml
+```
+
+Methods: `status`, `bots`, `poll`, `send`, `claim`, `bind`, `bindings`,
+`deliver` (Matrix delivery is the next slice), `commit`, `rollback`.
+
+`poll` reads the latest history page per configured bot and advances a durable
+`rakazo:<bot>` cursor. `send` uses `threads.appendAssistant`, so a Matrix
+message never starts a model run by accident.
 
 ## Example
 
