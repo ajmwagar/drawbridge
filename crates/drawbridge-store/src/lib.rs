@@ -82,6 +82,13 @@ pub struct Binding {
     pub display: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct InboundRow {
+    pub event_id: String,
+    pub conversation: String,
+    pub payload: Vec<u8>,
+}
+
 pub struct Store {
     db: Mutex<Connection>,
     cipher: XChaCha20Poly1305,
@@ -488,6 +495,68 @@ impl Store {
             [],
             |r| r.get(0),
         )?)
+    }
+
+    /// Queue a Matrix transaction for the Spore. The transaction is persisted
+    /// before the appservice acknowledges it; `commit` removes it, `rollback`
+    /// leaves it for the next poll.
+    pub fn queue_inbound(
+        &self,
+        tenant: &str,
+        event_id: &str,
+        conversation: &str,
+        payload: &[u8],
+    ) -> Result<bool> {
+        let ciphertext = self.encrypt("inbound", payload)?;
+        Ok(self.db
+            .lock()
+            .unwrap()
+            .execute(
+                "INSERT OR IGNORE INTO inbound(tenant,event_id,conversation,payload) VALUES(?1,?2,?3,?4)",
+                params![tenant, event_id, conversation, ciphertext],
+            )?
+            > 0)
+    }
+
+    pub fn pending_inbound(&self, tenant: &str, limit: u32) -> Result<Vec<InboundRow>> {
+        let db = self.db.lock().unwrap();
+        let mut query = db.prepare(
+            "SELECT event_id,conversation,payload FROM inbound WHERE tenant=?1 AND state='pending' ORDER BY id LIMIT ?2",
+        )?;
+        let rows = query
+            .query_map(params![tenant, limit.min(500)], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        rows.into_iter()
+            .map(|(event_id, conversation, payload)| {
+                Ok(InboundRow {
+                    event_id,
+                    conversation,
+                    payload: self.decrypt("inbound", &payload)?,
+                })
+            })
+            .collect()
+    }
+
+    pub fn complete_inbound(&self, tenant: &str, event_id: &str) -> Result<()> {
+        self.db.lock().unwrap().execute(
+            "DELETE FROM inbound WHERE tenant=?1 AND event_id=?2",
+            params![tenant, event_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn retry_inbound(&self, tenant: &str, event_id: &str) -> Result<()> {
+        self.db.lock().unwrap().execute(
+            "UPDATE inbound SET attempts=attempts+1,next_at=?3 WHERE tenant=?1 AND event_id=?2",
+            params![tenant, event_id, drawbridge_core::now() as i64 + 30],
+        )?;
+        Ok(())
     }
 
     /// Run an application-specific query under the database lock.

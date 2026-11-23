@@ -3,6 +3,12 @@ encryption_key_env = "RAKAZO_HOST_KEY"
 tenant = "personal"
 bots = ["YOUR_BOT_ID"]
 
+listen = "127.0.0.1:8082"
+owner = "@YOUR_USER:beeper.com"
+homeserver = "https://matrix.beeper.com/_hungryserv/YOUR_USER"
+registration = "secrets/registration.json"
+# owner_token_env = "MATRIX_OWNER_TOKEN"
+
 [rakazo]
 url = "https://agents.fpl.dev"
 token_env = "RAKAZO_TOKEN"

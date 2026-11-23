@@ -5,8 +5,13 @@
 //! next slice.
 
 use anyhow::{Context, Result};
+use drawbridge_appservice::{AppServiceState, router};
 use drawbridge_core::secret;
-use drawbridge_host::{ipc, rakazo::RakazoBackend};
+use drawbridge_host::{
+    ipc,
+    matrix::{MatrixConfig, MatrixLayer},
+    rakazo::RakazoBackend,
+};
 use drawbridge_rakazo::RakazoClient;
 use drawbridge_store::Store;
 use serde::Deserialize;
@@ -25,6 +30,12 @@ struct HostConfig {
     tenant: String,
     #[serde(default)]
     bots: Vec<String>,
+    listen: std::net::SocketAddr,
+    owner: String,
+    homeserver: Url,
+    registration: PathBuf,
+    #[serde(default)]
+    owner_token_env: Option<String>,
     rakazo: RakazoConfig,
 }
 
@@ -73,11 +84,26 @@ async fn main() -> Result<()> {
     let token = secret(&config.rakazo.token_env)?;
     let space = secret(&config.rakazo.space_id_env)?;
     let client = RakazoClient::new(config.rakazo.url, &token, &space)?;
-    let backend = Arc::new(RakazoBackend::new(
-        client,
-        store,
-        config.tenant,
-        config.bots,
-    ));
-    ipc::serve(backend, tokio::io::stdin(), tokio::io::stdout()).await
+    let backend = RakazoBackend::new(client, store.clone(), config.tenant.clone(), config.bots);
+    let matrix = MatrixConfig {
+        listen: config.listen,
+        owner: config.owner,
+        homeserver: config.homeserver,
+        registration: config.registration,
+        owner_token_env: config.owner_token_env,
+    };
+    let (layer, hs_token) = MatrixLayer::new(&matrix, backend, store, config.tenant)?;
+    let state = AppServiceState::new(layer.clone(), hs_token);
+    let app = router(state);
+    let listener = tokio::net::TcpListener::bind(matrix.listen).await?;
+    tracing::info!(listen=%matrix.listen, "rakazo-host listening");
+    tokio::try_join!(
+        async {
+            axum::serve(listener, app)
+                .await
+                .context("appservice server failed")
+        },
+        ipc::serve(layer, tokio::io::stdin(), tokio::io::stdout())
+    )?;
+    Ok(())
 }

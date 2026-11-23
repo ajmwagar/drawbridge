@@ -9,8 +9,11 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+axum.workspace = true
 async-trait = "0.1"
+drawbridge-appservice = { path = "../drawbridge-appservice" }
 drawbridge-core = { path = "../drawbridge-core" }
+drawbridge-matrix = { path = "../drawbridge-matrix" }
 drawbridge-meshcore = { path = "../drawbridge-meshcore" }
 drawbridge-rakazo = { path = "../drawbridge-rakazo" }
 drawbridge-store = { path = "../drawbridge-store" }

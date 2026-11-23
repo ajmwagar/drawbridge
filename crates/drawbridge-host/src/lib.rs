@@ -8,6 +8,7 @@
 
 pub mod backend;
 pub mod ipc;
+pub mod matrix;
 pub mod meshcore;
 pub mod rakazo;
 

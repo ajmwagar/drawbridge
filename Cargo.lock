@@ -285,7 +285,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
+ "drawbridge-appservice",
  "drawbridge-core",
+ "drawbridge-matrix",
  "drawbridge-meshcore",
  "drawbridge-rakazo",
  "drawbridge-store",

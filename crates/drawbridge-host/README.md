@@ -36,8 +36,10 @@ claim/cursor store. The Spore sees neither credential.
 cargo run -p drawbridge-host --bin rakazo-host -- --config rakazo-host.example.toml
 ```
 
-Methods: `status`, `bots`, `poll`, `send`, `claim`, `bind`, `bindings`,
-`deliver` (Matrix delivery is the next slice), `commit`, `rollback`.
+Methods: `status`, `bots`, `poll`, `send`, `deliver`, `ensure-room`, `claim`,
+`bind`, `bindings`, `commit`, `rollback`. The host also serves the Matrix
+appservice on `listen`; `poll` appends pending Matrix transactions to the Rakazo
+events.
 
 `poll` reads the latest history page per configured bot and advances a durable
 `rakazo:<bot>` cursor. `send` uses `threads.appendAssistant`, so a Matrix
