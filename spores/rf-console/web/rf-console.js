@@ -41,6 +41,7 @@ const runtime = new Map(
 );
 
 let activeId = "hackrf";
+let activeGroup = "all";
 let hoveredFreq = null;
 let dragging = false;
 let sessionSeconds = 42 * 60 + 17;
@@ -73,7 +74,11 @@ const el = {
   squelchValue: $("#squelch-value"),
   signalValue: $("#signal-value"),
   meterFill: $("#meter-fill"),
-  presetList: $("#preset-list"),
+  scenarioList: $("#scenario-list"),
+  bandGroups: $("#band-groups"),
+  bandCount: $("#band-count"),
+  bandPrev: $("#band-prev"),
+  bandNext: $("#band-next"),
   recordToggle: $("#record-toggle"),
   recordNote: $("#record-note"),
   statusLabel: $("#status-label"),
@@ -150,12 +155,34 @@ function pushEvent(text) {
   while (el.events.children.length > 5) el.events.lastElementChild.remove();
 }
 
-function renderPresets() {
+function visiblePresets() {
+  return activeGroup === "all" ? PRESETS : PRESETS.filter((preset) => preset.group === activeGroup);
+}
+
+function renderScenarios() {
   const state = settings();
-  el.presetList.querySelectorAll("[data-preset]").forEach((button) => {
-    const preset = PRESETS.find((item) => item.name === button.dataset.preset);
+  const visible = visiblePresets();
+  el.bandCount.textContent = String(visible.length).padStart(2, "0");
+  el.bandGroups.querySelectorAll("[data-band-group]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.bandGroup === activeGroup);
+  });
+  el.scenarioList.querySelectorAll("[data-scenario]").forEach((button) => {
+    const preset = PRESETS.find((item) => item.name === button.dataset.scenario);
+    button.hidden = activeGroup !== "all" && preset?.group !== activeGroup;
     button.classList.toggle("is-current", preset?.device === activeId && preset?.freq === state.freq);
   });
+}
+
+function stepScenario(direction) {
+  const list = visiblePresets();
+  if (!list.length) return;
+  const index = list.findIndex(
+    (preset) => preset.device === activeId && preset.freq === settings().freq,
+  );
+  const next = index === -1
+    ? (direction > 0 ? 0 : list.length - 1)
+    : (index + direction + list.length) % list.length;
+  applyPreset(list[next].name);
 }
 
 function resetSpectrumHistory() {
@@ -202,7 +229,7 @@ function syncControls() {
   }
 
   renderDevices();
-  renderPresets();
+  renderScenarios();
 }
 
 function setActiveDevice(id, announce = true) {
@@ -597,10 +624,20 @@ el.deviceList.addEventListener("click", (event) => {
   if (button) setActiveDevice(button.dataset.device);
 });
 
-el.presetList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-preset]");
-  if (button) applyPreset(button.dataset.preset);
+el.scenarioList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-scenario]");
+  if (button) applyPreset(button.dataset.scenario);
 });
+
+el.bandGroups.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-band-group]");
+  if (!button) return;
+  activeGroup = button.dataset.bandGroup;
+  renderScenarios();
+});
+
+el.bandPrev.addEventListener("click", () => stepScenario(-1));
+el.bandNext.addEventListener("click", () => stepScenario(1));
 
 el.modeGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-mode]");
@@ -730,7 +767,7 @@ setInterval(() => {
 }, 1000);
 
 renderDevices();
-renderPresets();
+renderScenarios();
 resizeSpectrum();
 resizeWaterfall();
 syncControls();

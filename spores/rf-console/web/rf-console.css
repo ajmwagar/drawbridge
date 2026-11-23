@@ -357,6 +357,150 @@ input:focus-visible {
   background: var(--accent);
 }
 
+.band-explorer {
+  border-top: 1px solid var(--line-soft);
+  padding-bottom: 8px;
+}
+
+.band-nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.band-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.band-nav button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#band-count {
+  min-width: 18px;
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 8px;
+  text-align: center;
+}
+
+.band-groups {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  padding: 0 12px 7px;
+}
+
+.band-group {
+  appearance: none;
+  padding: 3px 1px;
+  border: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.band-group:hover {
+  border-color: var(--faint);
+  color: var(--muted);
+}
+
+.band-group.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.scenario-list {
+  max-height: 218px;
+  overflow-y: auto;
+  padding: 0 8px;
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+
+.scenario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 7px;
+  border: 0;
+  border-left: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenario:hover,
+.scenario.is-current {
+  border-left-color: var(--accent);
+  background: var(--panel-2);
+}
+
+.scenario[hidden] {
+  display: none;
+}
+
+.scenario-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.scenario-name {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario.is-current .scenario-name {
+  color: var(--accent);
+}
+
+.scenario-meta {
+  overflow: hidden;
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario-freq {
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.scenario.is-current .scenario-freq {
+  color: var(--accent-2);
+}
+
 .rail-events {
   border-top: 1px solid var(--line-soft);
   padding-bottom: 12px;

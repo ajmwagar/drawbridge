@@ -11,7 +11,7 @@ This is a UI prototype. Every reading is generated locally and labelled
 Most of the page is Soil now:
 
 ```text
-source/data.soil     receivers, signals, presets, initial events
+source/data.soil     receivers, signals, 23 band scenarios, initial events
 source/ui.soil       HTML shell, rail, scope, inspector, controls
 tests/render.soil    pure page/data/escape checks
 web/rf-console.js    canvas spectrum + waterfall and in-place DOM updates
@@ -22,7 +22,9 @@ tools/export.sh      render source into the page
 
 The browser script no longer defines the receiver inventory or controls. It
 reads the Soil-generated `#rf-state` JSON, draws the canvases, and updates the
-rendered DOM. That keeps the app editable as Soil while leaving the
+rendered DOM. The band explorer is also Soil data: 23 named scenarios grouped
+as WX, AIR, SEA, DATA, FM, and HAM, with previous/next stepping through the
+visible group. That keeps the app editable as Soil while leaving the
 high-frequency drawing and pointer handling in JavaScript.
 
 ## Preview

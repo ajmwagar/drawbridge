@@ -60,21 +60,37 @@
 (defun rf/mode-buttons (modes)
   (string-join (map 'rf/mode-button modes) ""))
 
-(defun rf/preset-row (preset current?)
+(defun rf/group-button (group active?)
+  (str "<button type=\"button\" class=\"band-group"
+       (if active? " is-active" "") "\" data-band-group=\""
+       (attr-escape (field group :id)) "\">" (rf/fill (field group :label)) "</button>"))
+
+(defun rf/group-buttons (groups first?)
+  (if (nil? groups)
+      ""
+      (str
+        (rf/group-button (first groups) first?)
+        (rf/group-buttons (rest groups) #f))))
+
+(defun rf/scenario-row (preset current?)
   (str
-    "<button type=\"button\" class=\"preset"
+    "<button type=\"button\" class=\"scenario"
     (if current? " is-current" "")
-    "\" data-preset=\"" (attr-escape (field preset :name)) "\">"
-    "<span class=\"preset-name\">" (rf/fill (field preset :name)) "</span>"
-    "<span class=\"preset-freq\">" (rf/fill (field preset :freq-label)) "</span>"
+    "\" data-scenario=\"" (attr-escape (field preset :name))
+    "\" data-group=\"" (attr-escape (field preset :group)) "\">"
+    "<span class=\"scenario-copy\">"
+    "<span class=\"scenario-name\">" (rf/fill (field preset :name)) "</span>"
+    "<span class=\"scenario-meta\">" (rf/fill (field preset :tag)) " · "
+    (rf/fill (field preset :mode)) "</span></span>"
+    "<span class=\"scenario-freq\">" (rf/fill (field preset :freq-label)) "</span>"
     "</button>"))
 
-(defun rf/preset-rows (presets first?)
+(defun rf/scenario-rows (presets first?)
   (if (nil? presets)
       ""
       (str
-        (rf/preset-row (first presets) first?)
-        (rf/preset-rows (rest presets) #f))))
+        (rf/scenario-row (first presets) first?)
+        (rf/scenario-rows (rest presets) #f))))
 
 (defun rf/state-json ()
   (json-encode
@@ -111,6 +127,15 @@
       "<div class=\"device-list\" id=\"device-list\" role=\"listbox\" aria-label=\"Select a receiver\">"
       (rf/device-rows (rf/devices) (field device :id))
       "</div>\n"
+      "<section class=\"band-explorer\" aria-label=\"Band explorer\">"
+      "<div class=\"rail-head\"><h2>Band explorer</h2>"
+      "<div class=\"band-nav\"><button type=\"button\" id=\"band-prev\" aria-label=\"Previous scenario\">‹</button>"
+      "<span id=\"band-count\">23</span>"
+      "<button type=\"button\" id=\"band-next\" aria-label=\"Next scenario\">›</button></div></div>"
+      "<div class=\"band-groups\" id=\"band-groups\" role=\"group\" aria-label=\"Band groups\">"
+      (rf/group-buttons (rf/groups) #t) "</div>"
+      "<div class=\"scenario-list\" id=\"scenario-list\" aria-label=\"Scenarios\">"
+      (rf/scenario-rows (rf/presets) #t) "</div></section>\n"
       "<section class=\"rail-events\" aria-label=\"Recent events\">"
       "<div class=\"rail-head\"><h2>Recent</h2><span class=\"count\">LIVE</span></div>"
       "<ol class=\"events\" id=\"events\">" (rf/event-rows (rf/events)) "</ol></section>\n"
@@ -180,9 +205,6 @@
       "<div class=\"meter\" aria-hidden=\"true\"><span class=\"meter-fill\" id=\"meter-fill\"></span>"
       "<span class=\"meter-mark\" style=\"left: 68%\"></span></div>"
       "<div class=\"meter-foot\"><span>NOISE −104</span><span>PEAK −41</span><span>SNR 63</span></div></section>\n"
-      "<section class=\"preset-block\"><div class=\"group-head\"><h2>Presets</h2>"
-      "<span class=\"group-value\">05</span></div><div class=\"preset-list\" id=\"preset-list\">"
-      (rf/preset-rows (rf/presets) #t) "</div></section>\n"
       "<section class=\"record-block\"><div><p class=\"eyebrow\">Capture</p>"
       "<p class=\"record-note\" id=\"record-note\">No active recording</p></div>"
       "<button type=\"button\" class=\"record\" id=\"record-toggle\" aria-pressed=\"false\">Record</button></section>\n"
