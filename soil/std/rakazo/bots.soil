@@ -1,0 +1,51 @@
+; SPDX-License-Identifier: Apache-2.0
+; Rakazo bot selection policy, ported from rakazo-drawbridge's service selector.
+;
+; This is data-driven: no bot name is hardcoded except the orchestrator root
+; convention. Explicit ids and auto-selected roots/children/named bots are
+; merged, deduped and filtered to active bots.
+
+(defun rakazo/active? (bot)
+  (nil? (field bot :archived-at)))
+
+(defun rakazo/root? (bot)
+  (or (= (field bot :spawn-key) "fleet-orch-v1")
+      (= (field bot :name) "Fleet Orchestrator")))
+
+(defun rakazo/name-is? (bot name)
+  (let ((actual (field bot :name)))
+    (and (not (nil? actual))
+         (= (string-lower actual) (string-lower name)))))
+
+(defun rakazo/contains? (values value)
+  (cond
+    ((nil? values) #f)
+    ((= (first values) value) #t)
+    (else (rakazo/contains? (rest values) value))))
+
+(defun rakazo/select-bots (bots explicit auto-bots auto-named)
+  (let ((active (filter 'rakazo/active? bots))
+        (roots (filter 'rakazo/root? active)))
+    (let ((auto
+            (if auto-bots
+                (append
+                  roots
+                  (filter
+                    (lambda (bot)
+                      (let ((parent (field bot :parent-bot-id)))
+                        (and (not (nil? parent))
+                             (any? (lambda (root) (= parent (field root :id))) roots))))
+                    active))
+                nil))
+          (named
+            (filter
+              (lambda (bot)
+                (any? (lambda (name) (rakazo/name-is? bot name)) auto-named))
+              active))
+          (chosen (append auto named)))
+      (fold
+        (lambda (bot out)
+          (let ((id (field bot :id)))
+            (if (rakazo/contains? out id) out (append out (list id)))))
+        chosen
+        explicit))))

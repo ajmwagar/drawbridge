@@ -28,6 +28,8 @@ bearer token, a socket, or the SQLite file.
 | `std/messaging/core.soil` | Conversation keys, room naming, allowlists, small helpers. |
 | `std/messaging/commands.soil` | Owner command parser/dispatch (`/mesh ...`). |
 | `std/messaging/contacts.soil` | Explicit ∪ MeshCore chat contacts ∪ Matrix DM names, deduped. |
+| `std/messaging/ack.soil` | Acknowledgement policy, promise identity and the broken-promise notice. |
+| `std/rakazo/bots.soil` | Rakazo bot selection: explicit ∪ orchestrator roots/children ∪ named active bots. |
 
 ## Status
 

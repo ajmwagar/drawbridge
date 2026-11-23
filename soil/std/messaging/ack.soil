@@ -1,0 +1,49 @@
+; SPDX-License-Identifier: Apache-2.0
+; Acknowledgement discipline, ported from rakazo-drawbridge's fleet::ack.
+;
+; An ack is a promise, not a receipt:
+;   * never ack -> the reply is the only response
+;   * mid-thread only -> ack only while the agent is already working
+;   * always -> ack every inbound human message
+;
+; The durable ledger and the one-nudge/one-admission sweep stay in the host.
+
+(defun ack/policy? (value)
+  (or (= value "never")
+      (= value "mid_thread_only")
+      (= value "always")))
+
+(defun ack/policy (value)
+  (if (ack/policy? value)
+      (list 'ok value)
+      (list 'err "unknown ack_policy: expected never, mid_thread_only or always")))
+
+(defun ack/may-ack? (policy busy)
+  (cond
+    ((= policy "never") #f)
+    ((= policy "always") #t)
+    ((= policy "mid_thread_only") (not (nil? busy)))
+    (else #f)))
+
+;; Stable identity of one promise. The host may hash this; the Spore only needs
+;; it to be deterministic across retries.
+(defun ack/id (agent thread message)
+  (str "ack-" agent ":" thread ":" message))
+
+(defun ack/admission (ack-id)
+  (str
+    "I acknowledged your message and then did not follow up ("
+    ack-id
+    "). The acknowledgement was a promise, and I did not keep it."))
+
+(defun ack/obligation (ack-id message thread agent created due seq)
+  (list
+    (list :ack-id ack-id)
+    (list :message-id message)
+    (list :thread thread)
+    (list :agent agent)
+    (list :created-at created)
+    (list :due-by due)
+    (list :seq seq)
+    (list :status "open")
+    (list :notice-attempts 0)))
