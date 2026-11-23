@@ -1,6 +1,8 @@
 database = "data/drawbridge-host.db"
 encryption_key_env = "DRAWBRIDGE_HOST_KEY"
 tenant = "personal"
+# Replay old sidecar messages on first run. Off = start at the latest message.
+backfill = false
 
 [meshcore]
 url = "http://127.0.0.1:8787"

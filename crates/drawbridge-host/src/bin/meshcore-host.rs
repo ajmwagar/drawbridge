@@ -24,6 +24,8 @@ struct HostConfig {
     encryption_key_env: String,
     #[serde(default = "tenant_default")]
     tenant: String,
+    #[serde(default)]
+    backfill: bool,
     meshcore: MeshCoreConfig,
 }
 
@@ -70,6 +72,13 @@ async fn main() -> Result<()> {
     let store = Arc::new(Store::open(&config.database, &database_key, "")?);
     let token = secret(&config.meshcore.token_env)?;
     let client = MeshCoreClient::new(config.meshcore.url, token)?;
+    if !config.backfill
+        && store.cursor(&config.tenant, "meshcore")? == 0
+        && let Ok(latest) = client.latest_id().await
+        && latest > 0
+    {
+        store.set_cursor(&config.tenant, "meshcore", latest)?;
+    }
     let backend = Arc::new(MeshCoreBackend::new(client, store, config.tenant));
     ipc::serve(backend, tokio::io::stdin(), tokio::io::stdout()).await
 }
