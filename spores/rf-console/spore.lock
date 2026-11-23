@@ -1,0 +1,9 @@
+spore-lock 1
+spore dev.ajmwagar.rf-console
+version 0.1.0
+file 49179bdd707181ba108fe99a9ad0ebbafa232c2381737c8350ebd7ab6203c8d2 646 spore.toml
+file 7b47508d4d9f40e52df3962cefde6528867d0deff006ae35eb0af36f09cdc16a 204 web/favicon.svg
+file 40d22a6927a8cd813ea499e58f803766a9b5f1f64c71ee5a88f6f6e60c23e355 8524 web/index.html
+file a2018b3c4b733f4a76564014db8b4e24781a072e97c36d5ecac61dde2a65d2f9 17429 web/rf-console.css
+file 71009a8b5b71aae24c1786194a88395ae3b8d02de870bd68aaf50fcdb6869cf5 27322 web/rf-console.js
+digest fde17af783d9515df8cf73c3dbe28018658067ccc45b3eec3c4fe4bad19c32e9

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>RF Deck · Radioman console</title>
+  <link rel="stylesheet" href="rf-console.css">
+  <script type="module" src="rf-console.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">◈</span>
+        <span class="brand-name">RADIOMAN</span>
+        <span class="brand-sub">RF DECK</span>
+      </div>
+      <div class="topbar-status">
+        <span class="status-item"><span class="status-dot is-live" aria-hidden="true"></span><span id="device-count">4 devices</span></span>
+        <span class="status-item sim-badge">SIMULATED FEED</span>
+        <time id="utc-clock" class="clock">--:--:-- UTC</time>
+      </div>
+    </header>
+
+    <main class="console">
+      <aside class="rail" aria-label="Receivers">
+        <div class="rail-head">
+          <h2>Receivers</h2>
+          <span class="count" id="receiver-count">04</span>
+        </div>
+        <div class="device-list" id="device-list" role="listbox" aria-label="Select a receiver"></div>
+        <section class="rail-events" aria-label="Recent events">
+          <div class="rail-head">
+            <h2>Recent</h2>
+            <span class="count">LIVE</span>
+          </div>
+          <ol class="events" id="events"></ol>
+        </section>
+      </aside>
+
+      <section class="scope-panel" aria-label="Spectrum and waterfall">
+        <div class="scope-head">
+          <div class="scope-title">
+            <p class="eyebrow">Selected receiver</p>
+            <h1 id="receiver-title">HackRF One</h1>
+            <p class="receiver-meta" id="receiver-meta">hackrf/78d0… · wideband · 2.0 MS/s</p>
+          </div>
+          <div class="scope-actions">
+            <label class="field-compact" for="span">
+              <span>Span</span>
+              <select id="span">
+                <option value="0.5">0.5 MHz</option>
+                <option value="1">1 MHz</option>
+                <option value="2" selected>2 MHz</option>
+                <option value="5">5 MHz</option>
+                <option value="10">10 MHz</option>
+              </select>
+            </label>
+            <button type="button" class="toggle" id="peak-hold" aria-pressed="true">Peak hold</button>
+            <button type="button" class="primary" id="rx-toggle">Stop RX</button>
+          </div>
+        </div>
+
+        <div class="scope-card">
+          <canvas id="spectrum" aria-label="Simulated spectrum"></canvas>
+          <span class="scope-corner scope-corner-a">dBFS</span>
+          <span class="scope-corner scope-corner-b" id="scope-center">162.550 MHz</span>
+        </div>
+
+        <div class="axis-row" aria-hidden="true">
+          <span id="axis-a">161.55</span>
+          <span id="axis-b">162.05</span>
+          <span id="axis-c">162.55</span>
+          <span id="axis-d">163.05</span>
+          <span id="axis-e">163.55</span>
+        </div>
+
+        <div class="waterfall-wrap">
+          <canvas id="waterfall" aria-label="Simulated waterfall"></canvas>
+          <div class="waterfall-scale" aria-hidden="true">
+            <span>−40</span><span>−70</span><span>−100</span>
+          </div>
+        </div>
+
+        <div class="scope-foot">
+          <span>FFT <b>2048</b></span>
+          <span>BINS <b>512 visible</b></span>
+          <span>RATE <b id="foot-rate">20 fps</b></span>
+          <span>DROPPED <b>0</b></span>
+          <span class="scope-foot-end">DRAG TO TUNE · WHEEL TO NUDGE</span>
+        </div>
+      </section>
+
+      <aside class="inspector" aria-label="Receiver controls">
+        <section class="tune-block">
+          <p class="eyebrow">Tuned frequency</p>
+          <div class="freq-readout">
+            <span id="freq-major">162.550</span>
+            <span class="freq-unit">MHz</span>
+          </div>
+          <div class="tune-steps" aria-label="Tuning step">
+            <button type="button" class="step" data-step="-0.025">−25k</button>
+            <button type="button" class="step" data-step="-0.001">−1k</button>
+            <button type="button" class="step" data-step="0.001">+1k</button>
+            <button type="button" class="step" data-step="0.025">+25k</button>
+          </div>
+          <p class="tune-note" id="tune-note">Weather band · carrier centered</p>
+        </section>
+
+        <section class="control-group">
+          <div class="group-head">
+            <h2>Demodulation</h2>
+            <span class="group-value" id="mode-note">NFM</span>
+          </div>
+          <div class="mode-grid" id="mode-grid" role="group" aria-label="Demodulation mode">
+            <button type="button" data-mode="AM">AM</button>
+            <button type="button" data-mode="NFM" class="is-active">NFM</button>
+            <button type="button" data-mode="WFM">WFM</button>
+            <button type="button" data-mode="USB">USB</button>
+            <button type="button" data-mode="LSB">LSB</button>
+            <button type="button" data-mode="CW">CW</button>
+          </div>
+        </section>
+
+        <section class="control-group">
+          <div class="group-head">
+            <h2>Bandwidth</h2>
+            <output class="group-value" id="bw-value">12.5 kHz</output>
+          </div>
+          <div class="slider">
+            <span class="slider-rail"><span class="slider-fill"></span></span>
+            <span class="slider-thumb" aria-hidden="true"></span>
+            <input type="range" id="bandwidth" min="6" max="200" step="0.5" value="12.5" aria-label="Bandwidth">
+          </div>
+          <div class="range-labels"><span>6k</span><span>200k</span></div>
+        </section>
+
+        <section class="control-group">
+          <div class="group-head">
+            <h2>Gain</h2>
+            <output class="group-value" id="gain-value">22 dB</output>
+          </div>
+          <div class="slider">
+            <span class="slider-rail"><span class="slider-fill"></span></span>
+            <span class="slider-thumb" aria-hidden="true"></span>
+            <input type="range" id="gain" min="0" max="40" step="0.1" value="22" aria-label="Gain">
+          </div>
+          <div class="range-labels"><span>0</span><span>40</span></div>
+        </section>
+
+        <section class="control-group">
+          <div class="group-head">
+            <h2>Squelch</h2>
+            <output class="group-value" id="squelch-value">−92 dBFS</output>
+          </div>
+          <div class="slider">
+            <span class="slider-rail"><span class="slider-fill"></span></span>
+            <span class="slider-thumb" aria-hidden="true"></span>
+            <input type="range" id="squelch" min="-120" max="-20" step="1" value="-92" aria-label="Squelch">
+          </div>
+          <div class="range-labels"><span>−120</span><span>−20</span></div>
+        </section>
+
+        <section class="meter-block" aria-label="Signal level">
+          <div class="group-head">
+            <h2>Signal</h2>
+            <span class="group-value" id="signal-value">−41 dBFS</span>
+          </div>
+          <div class="meter" aria-hidden="true">
+            <span class="meter-fill" id="meter-fill"></span>
+            <span class="meter-mark" style="left: 68%"></span>
+          </div>
+          <div class="meter-foot"><span>NOISE −104</span><span>PEAK −41</span><span>SNR 63</span></div>
+        </section>
+
+        <section class="preset-block">
+          <div class="group-head">
+            <h2>Presets</h2>
+            <span class="group-value">05</span>
+          </div>
+          <div class="preset-list" id="preset-list"></div>
+        </section>
+
+        <section class="record-block">
+          <div>
+            <p class="eyebrow">Capture</p>
+            <p class="record-note" id="record-note">No active recording</p>
+          </div>
+          <button type="button" class="record" id="record-toggle" aria-pressed="false">Record</button>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span><span class="status-dot is-live" aria-hidden="true"></span><b id="status-label">RECEIVING</b></span>
+      <span>DEVICE <b id="status-device">HACKRF/78D0</b></span>
+      <span>SESSION <b id="status-session">00:42:17</b></span>
+      <span>IQ <b>2.000 MS/s · ci8</b></span>
+      <span class="statusbar-end">LOAM / RF CONSOLE v0</span>
+    </footer>
+  </div>
+</body>
+</html>
