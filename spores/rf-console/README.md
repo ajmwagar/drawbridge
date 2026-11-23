@@ -27,6 +27,22 @@ python3 -m http.server 8099 --directory web
 # open http://127.0.0.1:8099
 ```
 
+The Spore claims `drawbridge` as its Mycelium service name. Mycelium service
+names are single DNS labels; a dotted public host is a frontdoor alias. This is
+the route used locally:
+
+```json
+{
+  "name": "drawbridge",
+  "hosts": ["drawbridge.dev.myc"],
+  "upstream": "http://127.0.0.1:8799",
+  "service_kind": "rf-console",
+  "priority": 20
+}
+```
+
+With that route, `https://drawbridge.dev.myc/` serves the web surface.
+
 Or install the package into a Loam root once web surfaces are enabled:
 
 ```sh
