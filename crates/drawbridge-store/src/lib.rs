@@ -111,6 +111,22 @@ pub struct Database {
 
 impl Database {
     pub fn open(path: &Path, key_b64: &str, key_check: &str, schema: &str) -> Result<Self> {
+        Self::open_mode(path, key_b64, key_check, schema, true)
+    }
+
+    /// Open for a bridge with its own complete schema. Only the metadata table
+    /// needed for the key check is created; the caller's DDL owns the rest.
+    pub fn open_raw(path: &Path, key_b64: &str, key_check: &str) -> Result<Self> {
+        Self::open_mode(path, key_b64, key_check, "", false)
+    }
+
+    fn open_mode(
+        path: &Path,
+        key_b64: &str,
+        key_check: &str,
+        schema: &str,
+        generic: bool,
+    ) -> Result<Self> {
         let decoded = STANDARD
             .decode(key_b64)
             .context("database key must be base64")?;
@@ -134,7 +150,16 @@ impl Database {
         let _ = options.open(path)?;
         let conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
-        conn.execute_batch(SCHEMA)?;
+        if generic {
+            conn.execute_batch(SCHEMA)?;
+        } else {
+            conn.execute_batch(
+                "PRAGMA journal_mode=WAL;
+                 PRAGMA synchronous=FULL;
+                 PRAGMA foreign_keys=ON;
+                 CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value BLOB NOT NULL);",
+            )?;
+        }
         if !schema.trim().is_empty() {
             conn.execute_batch(schema)
                 .context("application schema failed")?;
