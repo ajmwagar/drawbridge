@@ -1,9 +1,8 @@
 //! MeshCore backend for the Drawbridge host IPC.
 //!
 //! This is the first host vertical: it owns the sidecar HTTP client, the
-//! durable claim/cursor store and the room bindings. Matrix delivery is the
-//! next slice; until then `deliver` returns an explicit unsupported error
-//! rather than pretending to send.
+//! durable claim/cursor store and the room bindings. Matrix delivery is layered
+//! on top by `crate::matrix::MatrixLayer`.
 
 use crate::backend::{Backend, IpcResponse};
 use anyhow::{Context, Result, bail};
@@ -44,13 +43,48 @@ impl Backend for MeshCoreBackend {
             "poll" => {
                 let limit = params["limit"].as_u64().unwrap_or(100).min(500) as u32;
                 let since = params["cursor"]
-                    .as_i64()
+                    .as_str()
+                    .and_then(|cursor| cursor.parse().ok())
+                    .or_else(|| params["cursor"].as_i64())
                     .unwrap_or(*self.cursor.lock().unwrap());
                 let messages = self.client.messages(since, limit).await?;
                 let next = messages.iter().map(|m| m.id).max().unwrap_or(since);
-                *self.cursor.lock().unwrap() = next;
-                self.store.set_cursor(self.tenant(), "meshcore", next)?;
-                Ok(json!({"messages": messages, "next": next}))
+                let events = messages
+                    .into_iter()
+                    .filter(|message| message.direction == "inbound")
+                    .filter_map(|message| {
+                        let conversation = message.conversation()?;
+                        let (kind, id) = match &conversation {
+                            Conversation::Channel(channel) => ("channel", channel.to_string()),
+                            Conversation::Contact(prefix) => ("contact", prefix.clone()),
+                        };
+                        let sender = message
+                            .sender_name
+                            .clone()
+                            .unwrap_or_else(|| id.clone());
+                        Some(json!({
+                            "meshcore": {
+                                "id": message.message_id,
+                                "conversation": {"kind": kind, "id": id},
+                                "sender": sender,
+                                "sender-name": message.sender_name,
+                                "text": message.text,
+                                "received-at-ms": message.received_at.saturating_mul(1000),
+                            }
+                        }))
+                    })
+                    .collect::<Vec<_>>();
+                Ok(json!({"events": events, "next": next.to_string()}))
+            }
+            "ack" => {
+                let cursor = params["cursor"]
+                    .as_str()
+                    .context("ack.cursor is required")?
+                    .parse::<i64>()
+                    .context("ack.cursor must be a message id")?;
+                *self.cursor.lock().unwrap() = cursor;
+                self.store.set_cursor(self.tenant(), "meshcore", cursor)?;
+                Ok(json!({}))
             }
             "send" => {
                 let conversation = conversation(params.get("conversation"))?;
@@ -87,9 +121,9 @@ impl Backend for MeshCoreBackend {
                 Ok(json!({}))
             }
             "bindings" => Ok(serde_json::to_value(self.store.bindings(self.tenant())?)?),
-            "deliver" => bail!("Matrix delivery is not implemented in the MeshCore host yet"),
-            "commit" => Ok(json!({})),
-            "rollback" => Ok(json!({})),
+            "deliver" | "ensure-room" | "commit" | "rollback" => {
+                bail!("Matrix delivery is not wired into this MeshCore backend")
+            }
             other => bail!("unknown host method {other}"),
         }
     }

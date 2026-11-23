@@ -1,0 +1,28 @@
+schema = 1
+
+[spore]
+id = "dev.ajmwagar.meshcore-bridge"
+name = "meshcore-bridge"
+title = "MeshCore Bridge"
+version = "0.1.0"
+license = "MIT"
+summary = "Route MeshCore conversations into Beeper rooms through Drawbridge"
+
+[engine]
+soil = ">=0.1"
+target = "wasm32-wasip2"
+
+[module]
+path = "module.wasm"
+
+[launch]
+default = "native"
+surfaces = ["native"]
+
+[grants]
+"ajmwagar:drawbridge" = "poll, send, deliver and bind through the native MeshCore host"
+"wasi:clocks" = "the loop's poll interval; the host owns the network clock"
+
+[denied]
+"soil:http" = ["the native host owns the sidecar and Matrix transport"]
+"wasi:filesystem" = ["credentials and the database stay in the host"]

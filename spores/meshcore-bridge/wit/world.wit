@@ -1,0 +1,13 @@
+// meshcore-bridge Spore ABI.
+//
+// The Spore owns routing, owner policy, command replies and the order in which
+// a transaction's effects are applied. The native Drawbridge host owns the
+// appservice, sidecar HTTP, SQLite, credentials and retries.
+package ajmwagar:meshcore-bridge@0.1.0;
+
+world bridge {
+  import ajmwagar:drawbridge/bridge@0.1.0;
+
+  /// Run the bridge loop. Intended to be launched as a long-lived command.
+  export run: func(args: list<string>) -> result<string, string>;
+}

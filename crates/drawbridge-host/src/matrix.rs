@@ -30,6 +30,7 @@ pub struct MatrixLayer<B> {
     backend: B,
     matrix: MatrixAppService,
     owner: Option<MatrixUser>,
+    owner_id: String,
     store: Arc<Store>,
     tenant: String,
 }
@@ -53,6 +54,7 @@ impl<B: Backend> MatrixLayer<B> {
                 backend,
                 matrix,
                 owner,
+                owner_id: config.owner.clone(),
                 store,
                 tenant: tenant.into(),
             }),
@@ -89,7 +91,11 @@ impl<B: Backend> MatrixLayer<B> {
         };
         let room = self
             .matrix
-            .ensure_room(&spec, &ghost, params["owner"].as_str().unwrap_or(""))
+            .ensure_room(
+                &spec,
+                &ghost,
+                params["owner"].as_str().unwrap_or(&self.owner_id),
+            )
             .await?;
         if let Some(owner) = &self.owner
             && let Err(error) = owner.join(&room).await
@@ -151,7 +157,32 @@ impl<B: Backend> Backend for MatrixLayer<B> {
             }
             "ensure-room" => self.ensure_room(params).await,
             "bind" => {
-                let binding: Binding = serde_json::from_value(params)?;
+                // Accept both the host-native binding shape and the Spore-facing
+                // one (which omits the tenant and carries a conversation).
+                let binding = if params.get("tenant").is_some() {
+                    serde_json::from_value::<Binding>(params)?
+                } else {
+                    let conversation = params
+                        .get("conversation")
+                        .context("bind.conversation is required")?;
+                    let kind = conversation["kind"]
+                        .as_str()
+                        .context("bind.conversation.kind is required")?;
+                    let id = conversation["id"]
+                        .as_str()
+                        .context("bind.conversation.id is required")?;
+                    Binding {
+                        tenant: self.tenant.clone(),
+                        key: format!("{kind}:{id}"),
+                        room: params["room"].as_str().context("bind.room is required")?.into(),
+                        ghost: params["ghost"].as_str().context("bind.ghost is required")?.into(),
+                        display: params["display-name"]
+                            .as_str()
+                            .or_else(|| params["display"].as_str())
+                            .unwrap_or(id)
+                            .to_string(),
+                    }
+                };
                 self.store.upsert_binding(&binding)?;
                 Ok(json!({}))
             }

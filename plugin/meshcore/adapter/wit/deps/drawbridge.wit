@@ -1,0 +1,182 @@
+// Drawbridge host capability.
+//
+// This is the boundary between a Soil Spore (bridge policy and routing) and
+// the native Drawbridge host (Matrix appservice, MeshCore HTTP, SQLite,
+// credentials, retries). A Spore imports this interface; it never sees a
+// Matrix token, a sidecar bearer token, a socket, or the database.
+//
+// The host owns:
+//   - the Matrix appservice websocket/transaction endpoint and its claims
+//   - the MeshCore sidecar HTTP client and cursor
+//   - durable send/deliver dedupe and retry
+//
+// The Spore owns:
+//   - which conversation maps to which room
+//   - formatting, filtering, allowlists, and owner policy
+//   - the order in which a transaction's effects are applied
+package ajmwagar:drawbridge@0.1.0;
+
+interface types {
+  enum conversation-kind {
+    channel,
+    contact,
+  }
+
+  /// A MeshCore conversation. `id` is a channel index (`"0"`) or a lowercase
+  /// contact pubkey prefix.
+  record conversation {
+    kind: conversation-kind,
+    id: string,
+  }
+
+  record message {
+    /// Stable sidecar message id, used for dedupe and retry.
+    id: string,
+    conversation: conversation,
+    sender: string,
+    sender-name: option<string>,
+    text: string,
+    received-at-ms: u64,
+  }
+
+  record matrix-event {
+    event-id: string,
+    room: string,
+    sender: string,
+    kind: string,
+    /// Plain-text body for `m.room.message`; none for state or media.
+    body: option<string>,
+    origin-server-ts-ms: option<u64>,
+    encrypted: bool,
+  }
+
+  /// One appservice transaction. The host must not acknowledge it to the
+  /// homeserver until the Spore calls `commit`.
+  record transaction {
+    id: string,
+    events: list<matrix-event>,
+  }
+
+  variant event {
+    meshcore(message),
+    matrix(transaction),
+  }
+
+  record page {
+    events: list<event>,
+    /// Opaque cursor for the next page. `none` means "ask again later".
+    next: option<string>,
+  }
+
+  record send-ack {
+    request-id: string,
+    state: string,
+  }
+
+  record binding {
+    conversation: conversation,
+    room: string,
+    ghost: string,
+    display-name: string,
+  }
+
+  record health {
+    sidecar-connected: bool,
+    radio-name: string,
+    radio-public-key: string,
+    contacts: u64,
+    channels: u64,
+  }
+
+  enum error {
+    /// The Spore was not granted the bridge capability.
+    denied,
+    /// Conversation, room, cursor, or text is malformed or outside bounds.
+    invalid,
+    /// The sidecar or homeserver is unreachable.
+    unavailable,
+    /// A page, text body, or transaction exceeds the host budget.
+    over-budget,
+    /// A binding or transaction id is already claimed by a different order.
+    conflict,
+    /// The cursor predates the host's retained window.
+    stale,
+    /// This host has no bridge backend.
+    unsupported,
+    /// The host store failed.
+    io,
+  }
+}
+
+interface bridge {
+  use types.{
+    binding,
+    conversation,
+    error,
+    event,
+    health,
+    page,
+    send-ack,
+  };
+
+  /// Poll retained events. The host returns MeshCore messages and Matrix
+  /// transactions in one ordered stream; the Spore decides what to do with
+  /// each. An empty page is normal and means "nothing new".
+  poll: func(cursor: option<string>, limit: u32) -> result<page, error>;
+
+  /// Advance the durable network cursor after a page's effects are complete.
+  /// Poll does not advance it; a crash re-reads the page, and `deliver`'s
+  /// transaction id makes the replay idempotent.
+  ack: func(cursor: string) -> result<_, error>;
+
+  /// Send text to a MeshCore channel or contact through the sidecar's bounded
+  /// `/v1/send` endpoint. The host enforces its own allowlist; the Spore's
+  /// policy is defense in depth, not the only check.
+  send: func(conversation: conversation, text: string) -> result<send-ack, error>;
+
+  /// Deliver text to a Matrix room as the bridge ghost. `transaction-id` is
+  /// the idempotency key: repeating it returns the same Matrix event id.
+  deliver: func(
+    room: string,
+    transaction-id: string,
+    text: string,
+  ) -> result<string, error>;
+
+  /// Create or reuse a Matrix room for a conversation, register its ghost, and
+  /// persist the binding. This is idempotent on the conversation key.
+  ensure-room: func(
+    conversation: conversation,
+    display: string,
+    protocol: option<string>,
+  ) -> result<binding, error>;
+
+  /// Persist a conversation -> room binding. The host rejects a room that is
+  /// already bound to another conversation.
+  bind: func(binding: binding) -> result<_, error>;
+
+  bindings: func() -> result<list<binding>, error>;
+
+  /// Claim a network event id or Matrix event id exactly once. `true` means
+  /// this caller now owns the right to process it; `false` means it was
+  /// already processed and must be skipped.
+  claim: func(key: string) -> result<bool, error>;
+
+  /// Commit a Matrix transaction after all its effects are durable. Until
+  /// this returns, the homeserver is allowed to retry the transaction.
+  commit: func(transaction-id: string) -> result<_, error>;
+
+  /// Drop a transaction's claim so a failed attempt can be retried.
+  rollback: func(transaction-id: string) -> result<_, error>;
+
+  status: func() -> result<health, error>;
+}
+
+/// The native plugin/daemon implements this and exports it to Spores.
+world host {
+  export bridge;
+}
+
+/// A Soil Spore that provides bridge policy.
+world guest {
+  import bridge;
+}

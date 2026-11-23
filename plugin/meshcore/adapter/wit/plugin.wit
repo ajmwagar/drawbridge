@@ -1,0 +1,8 @@
+// Adapter world: export the Drawbridge bridge capability, forward to the
+// native meshcore-host sidecar over loam:plugin/ipc.
+package ajmwagar:drawbridge-adapter@0.1.0;
+
+world plugin {
+  export ajmwagar:drawbridge/bridge@0.1.0;
+  import loam:plugin/ipc@0.1.0;
+}

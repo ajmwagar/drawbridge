@@ -1,13 +1,18 @@
 //! MeshCore host sidecar for the Drawbridge Loam plugin.
 //!
-//! Reads line-delimited JSON on stdin, writes responses on stdout. The Matrix
-//! appservice and room delivery are the next slice; this binary currently
-//! exposes MeshCore status, polling, sends, adverts, settings and channel
-//! management plus the durable claim/binding surface.
+//! Reads line-delimited JSON on stdin, writes responses on stdout. The same
+//! process owns the Beeper appservice endpoint: inbound transactions are
+//! queued in SQLite, appended to `poll`, and only acknowledged after the Spore
+//! calls `commit`.
 
 use anyhow::{Context, Result};
+use drawbridge_appservice::{AppServiceState, router};
 use drawbridge_core::secret;
-use drawbridge_host::{ipc, meshcore::MeshCoreBackend};
+use drawbridge_host::{
+    ipc,
+    matrix::{MatrixConfig, MatrixLayer},
+    meshcore::MeshCoreBackend,
+};
 use drawbridge_meshcore::MeshCoreClient;
 use drawbridge_store::Store;
 use serde::Deserialize;
@@ -26,6 +31,12 @@ struct HostConfig {
     tenant: String,
     #[serde(default)]
     backfill: bool,
+    listen: std::net::SocketAddr,
+    owner: String,
+    homeserver: Url,
+    registration: PathBuf,
+    #[serde(default)]
+    owner_token_env: Option<String>,
     meshcore: MeshCoreConfig,
 }
 
@@ -61,7 +72,7 @@ async fn main() -> Result<()> {
         )
         .init();
     let mut args = std::env::args().skip(1);
-    let mut config_path = PathBuf::from("drawbridge-host.toml");
+    let mut config_path = PathBuf::from("meshcore-host.toml");
     while let Some(arg) = args.next() {
         if arg == "--config" {
             config_path = args.next().context("--config requires a path")?.into();
@@ -79,6 +90,26 @@ async fn main() -> Result<()> {
     {
         store.set_cursor(&config.tenant, "meshcore", latest)?;
     }
-    let backend = Arc::new(MeshCoreBackend::new(client, store, config.tenant));
-    ipc::serve(backend, tokio::io::stdin(), tokio::io::stdout()).await
+    let backend = MeshCoreBackend::new(client, store.clone(), config.tenant.clone());
+    let matrix = MatrixConfig {
+        listen: config.listen,
+        owner: config.owner,
+        homeserver: config.homeserver,
+        registration: config.registration,
+        owner_token_env: config.owner_token_env,
+    };
+    let (layer, hs_token) = MatrixLayer::new(&matrix, backend, store, config.tenant)?;
+    let state = AppServiceState::new(layer.clone(), hs_token);
+    let app = router(state);
+    let listener = tokio::net::TcpListener::bind(matrix.listen).await?;
+    tracing::info!(listen=%matrix.listen, "meshcore-host listening");
+    tokio::try_join!(
+        async {
+            axum::serve(listener, app)
+                .await
+                .context("appservice server failed")
+        },
+        ipc::serve(layer, tokio::io::stdin(), tokio::io::stdout())
+    )?;
+    Ok(())
 }

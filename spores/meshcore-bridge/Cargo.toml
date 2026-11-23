@@ -1,0 +1,18 @@
+[package]
+name = "meshcore-bridge-spore"
+description = "Soil bridge policy for MeshCore over the Drawbridge host"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.57"
+
+[lints.rust]
+unsafe_code = "allow"
+
+[workspace]

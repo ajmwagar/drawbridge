@@ -63,12 +63,16 @@ the MeshCore side.
 
 ## What ships in Drawbridge now
 
-- `wit/drawbridge.wit` — the draft capability contract.
-- `meshcore-mautrix` — the reference Rust app using Drawbridge directly.
-- The next step is a `drawbridge-plugin` crate that implements the WIT by
-  delegating to `drawbridge-matrix`, `drawbridge-store` and a network adapter,
-  plus a `spores/meshcore-bridge` Soil Spore that replaces the hard-coded
-  routing in `meshcore-mautrix/src/runtime.rs`.
+- `wit/drawbridge.wit` — the capability contract, including `ack` and
+  `ensure-room`.
+- `crates/drawbridge-host` — native sidecars with the Matrix appservice,
+  MeshCore host, Rakazo host, SQLite, claims and idempotent delivery.
+- `plugin/meshcore` — the Loam plugin package: a Wasm adapter exporting
+  `ajmwagar:drawbridge` over `loam:plugin/ipc`, plus the native sidecar.
+- `spores/meshcore-bridge` — the Soil policy loop. It polls, routes, delivers,
+  sends owner messages and acks the network cursor.
+- `meshcore-drawbridge` — the Rust fallback app, still authoritative for radio
+  settings and channel/contact commands.
 
 ## Open questions
 

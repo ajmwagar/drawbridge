@@ -1,0 +1,30 @@
+schema = 1
+
+# The plugin package: the native MeshCore host plus the Wasm adapter that
+# exposes `ajmwagar:drawbridge` to bridge Spores.
+[spore]
+id = "dev.ajmwagar.drawbridge.meshcore"
+name = "meshcore-drawbridge-host"
+title = "MeshCore Drawbridge Host"
+version = "0.1.0"
+license = "MIT"
+summary = "Native Matrix appservice and MeshCore sidecar host for Drawbridge"
+
+[engine]
+soil = ">=0.1"
+target = "wasm32-wasip2"
+
+[module]
+path = "module.wasm"
+
+[launch]
+default = "native"
+surfaces = ["native"]
+
+# Built from `crates/drawbridge-host` as the `meshcore-host` binary. Keep the
+# binary beside the manifest: the adapter only speaks stdin/stdout to it.
+[plugin]
+sidecar = "bin/meshcore-host"
+
+[grants]
+"loam:plugin" = "0.1.0"

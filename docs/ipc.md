@@ -18,6 +18,8 @@ does not stop the session.
 | --- | --- | --- |
 | `status` | `{}` | health object |
 | `poll` | `{"cursor": string?, "limit": u32}` | `{"events": [...], "next": string?}` |
+| `ack` | `{"cursor": string}` | `{}`; advances the durable network cursor |
+| `ensure-room` | `{"conversation":..., "display":string, "protocol":string?}` | binding |
 | `send` | `{"conversation": {"kind":"channel|contact","id":string}, "text":string}` | `{"request-id":string,"state":string}` |
 | `deliver` | `{"room":string,"transaction":string,"text":string}` | Matrix event id |
 | `bind` | `{"conversation":..., "room":string, "ghost":string, "display-name":string}` | `{}` |
@@ -32,6 +34,10 @@ does not stop the session.
 {"meshcore": {"id":"mc:...","conversation":{"kind":"channel","id":"0"},"sender":"...","text":"..."}}
 {"matrix": {"id":"txn","events":[{"event-id":"$...","room":"!...","sender":"@...","kind":"m.room.message","body":"..."}]}}
 ```
+
+`poll` does not advance the cursor. The Spore calls `ack` after all events in
+the page have been applied, so a crash re-reads the page; `deliver` is
+idempotent on the transaction id.
 
 ## Invariants
 

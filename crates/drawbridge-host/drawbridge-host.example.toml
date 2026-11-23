@@ -4,6 +4,16 @@ tenant = "personal"
 # Replay old sidecar messages on first run. Off = start at the latest message.
 backfill = false
 
+# Matrix appservice. The registration URL must point at this host's listen
+# address (for example http://127.0.0.1:8081 when the proxy forwards to 8081).
+listen = "127.0.0.1:8081"
+owner = "@ajmwagar:beeper.com"
+homeserver = "https://matrix.beeper.com/_hungryserv/ajmwagar"
+registration = "secrets/registration.json"
+# Optional: a user-level token that lets the host auto-join the owner. The
+# appservice token cannot join users outside the bridge namespace.
+# owner_token_env = "MESHCORE_OWNER_TOKEN"
+
 [meshcore]
 url = "http://127.0.0.1:8787"
 token_env = "MESHCORE_TOKEN"

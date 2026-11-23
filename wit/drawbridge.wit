@@ -124,6 +124,11 @@ interface bridge {
   /// each. An empty page is normal and means "nothing new".
   poll: func(cursor: option<string>, limit: u32) -> result<page, error>;
 
+  /// Advance the durable network cursor after a page's effects are complete.
+  /// Poll does not advance it; a crash re-reads the page, and `deliver`'s
+  /// transaction id makes the replay idempotent.
+  ack: func(cursor: string) -> result<_, error>;
+
   /// Send text to a MeshCore channel or contact through the sidecar's bounded
   /// `/v1/send` endpoint. The host enforces its own allowlist; the Spore's
   /// policy is defense in depth, not the only check.
@@ -136,6 +141,14 @@ interface bridge {
     transaction-id: string,
     text: string,
   ) -> result<string, error>;
+
+  /// Create or reuse a Matrix room for a conversation, register its ghost, and
+  /// persist the binding. This is idempotent on the conversation key.
+  ensure-room: func(
+    conversation: conversation,
+    display: string,
+    protocol: option<string>,
+  ) -> result<binding, error>;
 
   /// Persist a conversation -> room binding. The host rejects a room that is
   /// already bound to another conversation.
