@@ -1,0 +1,177 @@
+{
+  "source": "tinySA4",
+  "serial": "400",
+  "antenna": "AR-771",
+  "scanned_at": "2026-11-23T17:50:47.532140+00:00",
+  "points": 200,
+  "presets": {
+    "NOAA WX 7": {
+      "peak_dbm": -82.9,
+      "peak_hz": 162343970,
+      "noise_dbm": -91.4,
+      "snr_db": 8.5,
+      "center_dbm": -83.4
+    },
+    "NOAA WX 2": {
+      "peak_dbm": -84.9,
+      "peak_hz": 162359673,
+      "noise_dbm": -90.9,
+      "snr_db": 6.0,
+      "center_dbm": -89.4
+    },
+    "NOAA WX 5": {
+      "peak_dbm": -84.9,
+      "peak_hz": 162550377,
+      "noise_dbm": -91.4,
+      "snr_db": 6.5,
+      "center_dbm": -94.4
+    },
+    "NOAA APT": {
+      "peak_dbm": -77.6,
+      "peak_hz": 136582412,
+      "noise_dbm": -86.6,
+      "snr_db": 9.0,
+      "center_dbm": -84.1
+    },
+    "GOES HRIT": {
+      "peak_dbm": -83.4,
+      "peak_hz": 1693994472,
+      "noise_dbm": -104.5,
+      "snr_db": 21.0,
+      "center_dbm": -102.0
+    },
+    "ISS Voice": {
+      "peak_dbm": -86.7,
+      "peak_hz": 145782412,
+      "noise_dbm": -93.2,
+      "snr_db": 6.5,
+      "center_dbm": -92.7
+    },
+    "Guard": {
+      "peak_dbm": -83.8,
+      "peak_hz": 121683417,
+      "noise_dbm": -93.8,
+      "snr_db": 10.0,
+      "center_dbm": -95.8
+    },
+    "Marine 16": {
+      "peak_dbm": -88.6,
+      "peak_hz": 156626633,
+      "noise_dbm": -95.3,
+      "snr_db": 6.8,
+      "center_dbm": -97.1
+    },
+    "GMRS 462": {
+      "peak_dbm": -82.1,
+      "peak_hz": 462220226,
+      "noise_dbm": -99.4,
+      "snr_db": 17.2,
+      "center_dbm": -99.6
+    },
+    "APRS": {
+      "peak_dbm": -77.7,
+      "peak_hz": 144205327,
+      "noise_dbm": -91.7,
+      "snr_db": 14.0,
+      "center_dbm": -95.7
+    },
+    "MeshCore": {
+      "peak_dbm": -101.6,
+      "peak_hz": 914814070,
+      "noise_dbm": -107.1,
+      "snr_db": 5.5,
+      "center_dbm": -109.6
+    },
+    "LoRa 868": {
+      "peak_dbm": -105.8,
+      "peak_hz": 868368844,
+      "noise_dbm": -114.3,
+      "snr_db": 8.5,
+      "center_dbm": -116.4
+    },
+    "ISM 433": {
+      "peak_dbm": -102.9,
+      "peak_hz": 433671256,
+      "noise_dbm": -110.2,
+      "snr_db": 7.2,
+      "center_dbm": -113.4
+    },
+    "40m FT8": {
+      "peak_dbm": -105.5,
+      "peak_hz": 7143095,
+      "noise_dbm": -115.0,
+      "snr_db": 9.5,
+      "center_dbm": -111.0
+    },
+    "Tower": {
+      "peak_dbm": -76.3,
+      "peak_hz": 117856784,
+      "noise_dbm": -89.8,
+      "snr_db": 13.5,
+      "center_dbm": -89.3
+    },
+    "ATIS": {
+      "peak_dbm": -80.7,
+      "peak_hz": 134756281,
+      "noise_dbm": -92.2,
+      "snr_db": 11.5,
+      "center_dbm": -91.7
+    },
+    "ADS-B": {
+      "peak_dbm": -93.2,
+      "peak_hz": 1090540201,
+      "noise_dbm": -99.7,
+      "snr_db": 6.5,
+      "center_dbm": -98.6
+    },
+    "AIS 1": {
+      "peak_dbm": -89.0,
+      "peak_hz": 162041583,
+      "noise_dbm": -96.5,
+      "snr_db": 7.5,
+      "center_dbm": -95.0
+    },
+    "AIS 2": {
+      "peak_dbm": -89.5,
+      "peak_hz": 162081533,
+      "noise_dbm": -96.5,
+      "snr_db": 7.0,
+      "center_dbm": -94.0
+    },
+    "FM 90.3": {
+      "peak_dbm": -38.3,
+      "peak_hz": 94897990,
+      "noise_dbm": -70.7,
+      "snr_db": 32.4,
+      "center_dbm": -53.2
+    },
+    "FM 98.1": {
+      "peak_dbm": -39.3,
+      "peak_hz": 94959296,
+      "noise_dbm": -70.4,
+      "snr_db": 31.0,
+      "center_dbm": -67.3
+    },
+    "ATSC 533": {
+      "peak_dbm": -46.9,
+      "peak_hz": 537447236,
+      "noise_dbm": -67.5,
+      "snr_db": 20.5,
+      "center_dbm": -66.9
+    },
+    "2m Call": {
+      "peak_dbm": -74.2,
+      "peak_hz": 146959698,
+      "noise_dbm": -93.2,
+      "snr_db": 19.0,
+      "center_dbm": -93.7
+    },
+    "70cm Call": {
+      "peak_dbm": -87.0,
+      "peak_hz": 445505102,
+      "noise_dbm": -105.5,
+      "snr_db": 18.5,
+      "center_dbm": -105.0
+    }
+  }
+}

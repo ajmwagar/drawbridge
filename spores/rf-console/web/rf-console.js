@@ -31,6 +31,7 @@ const DEVICES = DATA.devices;
 const PRESETS = DATA.presets;
 const CATEGORIES = DATA.categories || [];
 const GPS = DATA.gps || { fix: false, region: "us", label: "Unknown region" };
+let SCOUT = null;
 
 const runtime = new Map(
   DEVICES.map((device) => [
@@ -87,6 +88,7 @@ const el = {
   bandmapContent: $("#bandmap-content"),
   bandmapRegion: $("#bandmap-region"),
   bandmapGps: $("#bandmap-gps"),
+  bandmapScout: $("#bandmap-scout"),
   bandmapCount: $("#bandmap-count"),
   bandmapPrev: $("#bandmap-prev"),
   bandmapNext: $("#bandmap-next"),
@@ -253,6 +255,79 @@ function renderBandmap() {
   el.bandmapGps.textContent = GPS.fix
     ? `GPS fix · ${GPS.label}`
     : `No GPS fix · ${GPS.label}`;
+  renderScout();
+}
+
+function scoutReading(name) {
+  return SCOUT?.presets?.[name] || null;
+}
+
+function scoutTone(snr) {
+  if (snr >= 12) return "is-strong";
+  if (snr >= 6) return "is-weak";
+  return "is-quiet";
+}
+
+function scoutPresence(preset, reading) {
+  const centerSnr = Number(reading.center_dbm) - Number(reading.noise_dbm);
+  const peakSnr = Number(reading.peak_dbm) - Number(reading.noise_dbm);
+  const tolerance = preset.mode === "NFM"
+    ? Math.max(0.025, Number(preset.bw) / 2000)
+    : Math.max(0.05, Number(preset.bw) / 1000);
+  const peakNear = Math.abs(Number(reading.peak_hz) / 1e6 - Number(preset.freq)) <= tolerance;
+  if (peakNear && peakSnr > centerSnr) {
+    return { snr: peakSnr, hz: Number(reading.peak_hz), source: "peak" };
+  }
+  return { snr: centerSnr, hz: Number(preset.freq) * 1e6, source: "center" };
+}
+
+function renderScout() {
+  const source = SCOUT ? `${SCOUT.source || "scout"} · ${SCOUT.antenna || "antenna"}` : "Scout · waiting";
+  const stamp = SCOUT?.scanned_at
+    ? new Date(SCOUT.scanned_at).toISOString().slice(11, 16) + "Z"
+    : "no recent scan";
+  el.bandmapScout.textContent = SCOUT ? `${source} · ${stamp}` : "Scout · waiting";
+
+  el.bandmapContent.querySelectorAll(".band-card").forEach((card) => {
+    const name = card.dataset.scenario;
+    const preset = PRESETS.find((item) => item.name === name);
+    const reading = scoutReading(name);
+    const chip = card.querySelector(".band-card-scout");
+    if (!chip) return;
+    if (!preset) {
+      chip.textContent = "Scout · no preset";
+      return;
+    }
+    chip.className = "band-card-scout";
+    if (!reading || reading.error) {
+      chip.textContent = "Scout · no data";
+      return;
+    }
+    const presence = scoutPresence(preset, reading);
+    const peak = Number(reading.peak_hz) / 1e6;
+    chip.classList.add(scoutTone(presence.snr));
+    chip.textContent = `Scout ${presence.snr >= 0 ? "+" : ""}${presence.snr.toFixed(1)} dB · ${formatFreq(presence.hz / 1e6)} MHz`;
+    chip.title = `${reading.center_dbm} dBm on channel · ${reading.peak_dbm} dBm peak at ${formatFreq(peak)} MHz · ${reading.noise_dbm} dBm noise`;
+  });
+
+  el.bandmapContent.querySelectorAll(".folder-card").forEach((card) => {
+    const category = card.dataset.bandmapCategory;
+    const chip = card.querySelector(".folder-scout");
+    if (!chip) return;
+    const entries = PRESETS.filter((preset) => preset.category === category);
+    const hits = entries.filter((preset) => {
+      const reading = scoutReading(preset.name);
+      if (!reading || reading.error) return false;
+      return scoutPresence(preset, reading).snr >= 6;
+    }).length;
+    chip.className = "folder-scout";
+    if (!SCOUT) {
+      chip.textContent = "Scout · waiting";
+    } else {
+      chip.textContent = `Scout · ${hits}/${entries.length} heard`;
+      if (hits > 0) chip.classList.add("has-hits");
+    }
+  });
 }
 
 function stepBandmap(direction) {
@@ -364,7 +439,7 @@ function applyPreset(name) {
   state.mode = preset.mode;
   state.bw = preset.bw;
   state.span = preset.span;
-  state.note = preset.note;
+  state.note = `${preset.name} · ${preset.tag}`;
   resetSpectrumHistory();
   hoveredFreq = null;
   syncControls();
@@ -692,18 +767,7 @@ function frame(now) {
     }
     lastFrameAt = now;
   }
-  lastSpectrum = makeSpectrum(performance.now());
-drawSpectrum(lastSpectrum, performance.now());
-drawWaterfall(lastSpectrum);
-lastWaterfallDraw = performance.now();
-const bandHash = location.hash.match(/^#bands(?:\/([a-z-]+))?$/);
-if (bandHash) {
-  if (bandHash[1] && CATEGORIES.some((category) => category.id === bandHash[1])) {
-    bandmapCategory = bandHash[1];
-  }
-  openBandmap();
-}
-requestAnimationFrame(frame);
+  requestAnimationFrame(frame);
 }
 
 let lastFrameAt = 0;
@@ -902,6 +966,17 @@ lastSpectrum = makeSpectrum(performance.now());
 drawSpectrum(lastSpectrum, performance.now());
 drawWaterfall(lastSpectrum);
 lastWaterfallDraw = performance.now();
+fetch("scout.json", { cache: "no-store" })
+  .then((response) => (response.ok ? response.json() : null))
+  .then((data) => {
+    SCOUT = data;
+    renderBandmap();
+  })
+  .catch(() => {
+    SCOUT = null;
+    renderBandmap();
+  });
+
 const bandHash = location.hash.match(/^#bands(?:\/([a-z-]+))?$/);
 if (bandHash) {
   if (bandHash[1] && CATEGORIES.some((category) => category.id === bandHash[1])) {

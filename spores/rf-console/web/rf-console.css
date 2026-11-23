@@ -494,6 +494,11 @@ body.bandmap-open {
   color: var(--sim);
 }
 
+.bandmap-scout {
+  color: var(--good);
+  font-variant-numeric: tabular-nums;
+}
+
 .bandmap-count {
   margin-left: auto;
   color: var(--faint);
@@ -678,6 +683,19 @@ body.bandmap-open {
   line-height: 1.45;
 }
 
+.folder-scout {
+  display: block;
+  margin-top: 3px;
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.03em;
+}
+
+.folder-scout.has-hits {
+  color: var(--good);
+}
+
 .bandmap-content {
   min-width: 0;
   height: 100%;
@@ -831,6 +849,31 @@ body.bandmap-open {
   font-size: 9px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
+}
+
+.band-card-scout {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid var(--line-soft);
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  letter-spacing: 0.025em;
+  line-height: 1.35;
+}
+
+.band-card-scout.is-strong {
+  border-color: color-mix(in oklch, var(--good) 55%, var(--line-soft));
+  color: var(--good);
+}
+
+.band-card-scout.is-weak {
+  border-color: color-mix(in oklch, var(--sim) 55%, var(--line-soft));
+  color: var(--sim);
+}
+
+.band-card-scout.is-quiet {
+  color: var(--faint);
 }
 
 .band-card-rig {

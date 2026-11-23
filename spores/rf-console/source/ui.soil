@@ -128,6 +128,7 @@
       "<span class=\"folder-count\">" (length items) " places</span></span>"
       "<span class=\"folder-intro\">" (rf/fill (field category :intro)) "</span>"
       "<span class=\"folder-samples\">" (rf/fill (string-join (rf/preset-names items) " · ")) "</span>"
+      "<span class=\"folder-scout\" data-folder-scout>Scout · waiting</span>"
       "</button>")))
 
 (defun rf/folder-cards (categories presets)
@@ -153,6 +154,8 @@
     "<span class=\"band-card-copy\">" (rf/fill (field preset :copy)) "</span>"
     "<span class=\"band-card-hear\"><span>Listen for</span>"
     (rf/fill (field preset :hear)) "</span>"
+    "<span class=\"band-card-scout\" data-scout-for=\"" (attr-escape (field preset :name)) "\">"
+    "Scout · waiting</span>"
     "<span class=\"band-card-rig\">"
     "<span><span class=\"band-card-label\">Radio</span>" (rf/fill (rf/device-name (field preset :device))) "</span>"
     "<span><span class=\"band-card-label\">Antenna</span>" (rf/fill (field preset :antenna)) "</span>"
@@ -201,6 +204,7 @@
     "<option value=\"europe\">Europe</option></select></label>"
     "<span class=\"bandmap-gps\" id=\"bandmap-gps\">No GPS fix · "
     (rf/fill (field (rf/gps) :label)) "</span>"
+    "<span class=\"bandmap-scout\" id=\"bandmap-scout\">Scout · waiting</span>"
     "<span class=\"bandmap-count\" id=\"bandmap-count\">24 places</span></div>"
     "<div class=\"bandmap-breadcrumb\" id=\"bandmap-breadcrumb\">"
     "<button type=\"button\" class=\"bandmap-crumb\" data-bandmap-category=\"folders\">All bands</button>"
@@ -235,8 +239,8 @@
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
       "<meta name=\"color-scheme\" content=\"dark\">\n"
       "<title>RF Deck · Radioman console</title>\n"
-      "<link rel=\"stylesheet\" href=\"rf-console.css\">\n"
-      "<script type=\"module\" src=\"rf-console.js\"></script>\n"
+      "<link rel=\"stylesheet\" href=\"rf-console.css?v=scout1\">\n"
+      "<script type=\"module\" src=\"rf-console.js?v=scout1\"></script>\n"
       "</head>\n<body>\n"
       "<div class=\"app\">\n"
       "<header class=\"topbar\">\n"
