@@ -478,6 +478,98 @@ impl MatrixAppService {
         Ok(())
     }
 
+    /// Authenticated JSON request for bridge-specific endpoints. Callers get
+    /// the status and body but never the token or the base URL.
+    pub async fn request_json(
+        &self,
+        method: Method,
+        path: &[&str],
+        user: Option<&str>,
+        body: Option<Value>,
+    ) -> Result<(StatusCode, Value)> {
+        self.request(method, path, user, body).await
+    }
+
+    pub async fn set_avatar(&self, user: &str, avatar_url: &str) -> Result<()> {
+        self.ok(
+            Method::PUT,
+            &["profile", user, "avatar_url"],
+            user,
+            Some(json!({"avatar_url": avatar_url})),
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn send_state(
+        &self,
+        room: &str,
+        user: &str,
+        kind: &str,
+        state_key: &str,
+        content: Value,
+    ) -> Result<String> {
+        let response = self
+            .ok(
+                Method::PUT,
+                &["rooms", room, "state", kind, state_key],
+                user,
+                Some(content),
+            )
+            .await?;
+        Ok(response["event_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string())
+    }
+
+    pub async fn room_messages(&self, room: &str, user: &str, from: Option<&str>) -> Result<Value> {
+        let mut url = self.url(&["rooms", room, "messages"])?;
+        url.query_pairs_mut()
+            .append_pair("user_id", user)
+            .append_pair("dir", "b")
+            .append_pair("limit", "1000");
+        if let Some(from) = from {
+            url.query_pairs_mut().append_pair("from", from);
+        }
+        let response = self
+            .client
+            .get(url)
+            .header(AUTHORIZATION, self.token.clone())
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Matrix history lookup failed: {}", e.without_url()))?;
+        ensure!(
+            response.status().is_success(),
+            "Matrix history lookup returned HTTP {}",
+            response.status()
+        );
+        Ok(response.json().await?)
+    }
+
+    /// MSC2716-style batch send, used by backfill.
+    pub async fn batch_send(
+        &self,
+        room: &str,
+        user: &str,
+        events: Vec<Value>,
+        forward: bool,
+    ) -> Result<()> {
+        let (status, body) = self
+            .request(
+                Method::POST,
+                &["rooms", room, "batch_send"],
+                Some(user),
+                Some(json!({"events": events, "forward": forward})),
+            )
+            .await?;
+        ensure!(
+            status.is_success(),
+            "Matrix batch_send returned HTTP {status}: {body}"
+        );
+        Ok(())
+    }
+
     pub async fn room_state(&self, room: &str, user: &str) -> Result<Value> {
         self.ok(Method::GET, &["rooms", room, "state"], user, None)
             .await
