@@ -12,6 +12,7 @@ anyhow.workspace = true
 async-trait = "0.1"
 drawbridge-core = { path = "../drawbridge-core" }
 drawbridge-meshcore = { path = "../drawbridge-meshcore" }
+drawbridge-rakazo = { path = "../drawbridge-rakazo" }
 drawbridge-store = { path = "../drawbridge-store" }
 serde.workspace = true
 serde_json.workspace = true
