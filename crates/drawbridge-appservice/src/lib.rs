@@ -18,10 +18,11 @@ use std::sync::Arc;
 use subtle::ConstantTimeEq;
 
 /// A bridge's transaction sink.
+#[async_trait::async_trait]
 pub trait TransactionHandler: Send + Sync + 'static {
     /// Persist and acknowledge a transaction. Returning `Ok` is the durable
     /// acknowledgement; returning `Err` makes the homeserver retry.
-    fn ingest(&self, txn: &str, payload: &Value) -> Result<()>;
+    async fn ingest(&self, txn: &str, payload: &Value) -> Result<()>;
     fn ready(&self) -> bool {
         true
     }
@@ -113,7 +114,7 @@ async fn transaction(
             Json(json!({"errcode":"M_INVALID_PARAM","error":"invalid transaction id"})),
         );
     }
-    match state.handler.ingest(&txn, &body) {
+    match state.handler.ingest(&txn, &body).await {
         Ok(()) => (StatusCode::OK, Json(json!({}))),
         Err(error) => {
             tracing::error!(%txn, %error, "transaction not acknowledged");
@@ -134,8 +135,9 @@ mod tests {
 
     struct Sink(AtomicUsize);
 
+    #[async_trait::async_trait]
     impl TransactionHandler for Sink {
-        fn ingest(&self, _txn: &str, _payload: &Value) -> Result<()> {
+        async fn ingest(&self, _txn: &str, _payload: &Value) -> Result<()> {
             self.0.fetch_add(1, Ordering::Relaxed);
             Ok(())
         }

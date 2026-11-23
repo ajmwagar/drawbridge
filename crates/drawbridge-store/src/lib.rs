@@ -201,6 +201,24 @@ impl Store {
         )? > 0)
     }
 
+    /// Release a transaction claim so a failed delivery can be retried.
+    pub fn release_transaction(&self, txn: &str) -> Result<()> {
+        self.db
+            .lock()
+            .unwrap()
+            .execute("DELETE FROM transactions WHERE txn=?1", [txn])?;
+        Ok(())
+    }
+
+    /// Release an event claim so a failed delivery can be retried.
+    pub fn release_event(&self, tenant: &str, event_id: &str) -> Result<()> {
+        self.db.lock().unwrap().execute(
+            "DELETE FROM events WHERE tenant=?1 AND event_id=?2",
+            params![tenant, event_id],
+        )?;
+        Ok(())
+    }
+
     /// Claim a network event exactly once. Returns `false` if it was already
     /// processed.
     pub fn claim_event(&self, tenant: &str, event_id: &str) -> Result<bool> {
