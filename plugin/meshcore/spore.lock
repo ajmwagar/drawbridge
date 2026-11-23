@@ -1,0 +1,7 @@
+spore-lock 1
+spore dev.ajmwagar.drawbridge.meshcore
+version 0.1.0
+file 03ef187ec09fdd13f526f9606975552ebbd168413faae85e32ed30b6a1513c77 33283424 bin/meshcore-host
+file b3daa071656d8e063402a53e6af7bc59fb076c5802d854da5332f3b9c7621bce 208145 module.wasm
+file 70edf70b6a584a8f371f23cd4f30ed00c52611e0a24320a60a2ffb68c7ff0445 723 spore.toml
+digest db078cce747e30930f0b13c90ba2cc69ad58c65012d84b28968c9b8eae881b20

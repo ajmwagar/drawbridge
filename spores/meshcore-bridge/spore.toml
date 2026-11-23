@@ -20,7 +20,8 @@ default = "native"
 surfaces = ["native"]
 
 [grants]
-"ajmwagar:drawbridge" = "poll, send, deliver and bind through the native MeshCore host"
+# `ajmwagar:drawbridge` is a provider import, not a host grant: the MeshCore
+# plugin package supplies it. Loam composes it from the provider root.
 "wasi:clocks" = "the loop's poll interval; the host owns the network clock"
 
 [denied]
