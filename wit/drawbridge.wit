@@ -88,6 +88,30 @@ interface types {
     channels: u64,
   }
 
+  /// One named MeshCore channel slot.
+  record channel {
+    index: u8,
+    name: string,
+  }
+
+  /// A channel slot with its secret URI. Treat the secret as a secret.
+  record channel-secret {
+    index: u8,
+    name: string,
+    secret: string,
+    uri: string,
+  }
+
+  /// One contact in the radio's contact table.
+  record contact {
+    /// The prefix a DM conversation uses.
+    prefix: string,
+    name: option<string>,
+    public-key: string,
+    /// True for a chat contact, false for a repeater/room/other entry.
+    chat: bool,
+  }
+
   enum error {
     /// The Spore was not granted the bridge capability.
     denied,
@@ -113,6 +137,9 @@ interface bridge {
     binding,
     conversation,
     error,
+    channel,
+    channel-secret,
+    contact,
     event,
     health,
     page,
@@ -160,6 +187,30 @@ interface bridge {
   /// this caller now owns the right to process it; `false` means it was
   /// already processed and must be skipped.
   claim: func(key: string) -> result<bool, error>;
+
+  /// Send a flood or zero-hop advertisement from the radio.
+  advert: func(flood: bool) -> result<_, error>;
+
+  /// Apply zero or more radio settings. Omitted fields are left unchanged.
+  settings: func(
+    name: option<string>,
+    tx-power: option<s32>,
+    path-hash-mode: option<u8>,
+    manual-add-contacts: option<bool>,
+  ) -> result<_, error>;
+
+  /// List the radio's channel slots.
+  channels: func() -> result<list<channel>, error>;
+
+  /// List the radio's contact table.
+  contacts: func() -> result<list<contact>, error>;
+
+  /// Create a private channel and return its key. The host does not create the
+  /// Matrix room; the Spore calls `ensure-room` with the returned index.
+  create-channel: func(name: string) -> result<channel-secret, error>;
+
+  /// Read one channel's key and share URI.
+  channel-key: func(index: u8) -> result<channel-secret, error>;
 
   /// Commit a Matrix transaction after all its effects are durable. Until
   /// this returns, the homeserver is allowed to retry the transaction.

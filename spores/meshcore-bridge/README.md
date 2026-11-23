@@ -11,6 +11,18 @@ durable.
 
 The command is long-lived by default. Use `--once` in tests.
 
-Only `/mesh status` and `/mesh help` are implemented here so far. The Rust
-fallback still owns the radio settings and channel/contact commands until those
-calls are added to `ajmwagar:drawbridge`.
+Owner commands:
+
+```text
+/mesh status
+/mesh advert [flood|zerohop]
+/mesh name <name>
+/mesh txpower <0-30>
+/mesh pathmode <0|1|2>
+/mesh autoadd on|off
+/mesh channels
+/mesh contacts
+/mesh channel create <name>
+/mesh channel key <index>
+/mesh channel share <index>
+```

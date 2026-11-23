@@ -10,8 +10,8 @@ wit_bindgen::generate!({
 });
 
 use crate::exports::ajmwagar::drawbridge::types::{
-    Binding, Conversation, ConversationKind, Event, Health, MatrixEvent, Message, Page, SendAck,
-    Transaction,
+    Binding, Channel, ChannelSecret, Contact, Conversation, ConversationKind, Event, Health,
+    MatrixEvent, Message, Page, SendAck, Transaction,
 };
 use crate::exports::ajmwagar::drawbridge::bridge::{Error, Guest};
 use crate::loam::plugin::ipc;
@@ -115,6 +115,83 @@ impl Guest for Component {
             .collect()
     }
 
+    fn advert(flood: bool) -> Result<(), Error> {
+        request("advert", json!({"flood": flood})).map(|_| ())
+    }
+
+    fn settings(
+        name: Option<String>,
+        tx_power: Option<i32>,
+        path_hash_mode: Option<u8>,
+        manual_add_contacts: Option<bool>,
+    ) -> Result<(), Error> {
+        request(
+            "settings",
+            json!({
+                "name": name,
+                "tx-power": tx_power,
+                "path-hash-mode": path_hash_mode,
+                "manual-add-contacts": manual_add_contacts,
+            }),
+        )
+        .map(|_| ())
+    }
+
+    fn channels() -> Result<Vec<Channel>, Error> {
+        let value = request("channels", json!({}))?;
+        value
+            .get("channels")
+            .and_then(Value::as_array)
+            .ok_or(Error::Invalid)?
+            .iter()
+            .map(|channel| {
+                Ok(Channel {
+                    index: channel
+                        .get("index")
+                        .and_then(Value::as_u64)
+                        .ok_or(Error::Invalid)? as u8,
+                    name: channel
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                })
+            })
+            .collect()
+    }
+
+    fn contacts() -> Result<Vec<Contact>, Error> {
+        let value = request("contacts", json!({}))?;
+        value
+            .get("contacts")
+            .and_then(Value::as_array)
+            .ok_or(Error::Invalid)?
+            .iter()
+            .map(|contact| {
+                Ok(Contact {
+                    prefix: string(contact, "prefix")?,
+                    name: contact
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    public_key: string(contact, "public-key")?,
+                    chat: contact
+                        .get("chat")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                })
+            })
+            .collect()
+    }
+
+    fn create_channel(name: String) -> Result<ChannelSecret, Error> {
+        channel_key(request("channel.create", json!({"name": name}))?)
+    }
+
+    fn channel_key(index: u8) -> Result<ChannelSecret, Error> {
+        channel_key(request("channel.key", json!({"index": index}))?)
+    }
+
     fn claim(key: String) -> Result<bool, Error> {
         let value = request("claim", json!({"key": key}))?;
         value.as_bool().ok_or(Error::Invalid)
@@ -142,6 +219,19 @@ impl Guest for Component {
             channels: integer(&value, "channels"),
         })
     }
+}
+
+fn channel_key(value: Value) -> Result<ChannelSecret, Error> {
+    Ok(ChannelSecret {
+        index: value
+            .get("channel_idx")
+            .or_else(|| value.get("index"))
+            .and_then(Value::as_u64)
+            .ok_or(Error::Invalid)? as u8,
+        name: string(&value, "name")?,
+        secret: string(&value, "secret")?,
+        uri: string(&value, "uri")?,
+    })
 }
 
 fn event(value: &Value) -> Result<Event, Error> {

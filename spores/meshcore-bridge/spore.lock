@@ -1,6 +1,6 @@
 spore-lock 1
 spore dev.ajmwagar.meshcore-bridge
 version 0.1.0
-file 3ea12205301daa54fe6fa6d54a5b7d9de04a46284bc9760779351cb2392b9c06 120137 module.wasm
+file 1cab60a57de9c81b31d69618fee4179f104d270708ddce24a582f8f075d0a6cd 143952 module.wasm
 file e8d583df87cfca986172c1ed2c9211ac50f3c16e7224bbd859d12cce5ecf64e1 938 spore.toml
-digest 15e38f2c1dd8457306dfdb926e5be4c78a4df550d3823aa303ff5ce4f8e048c4
+digest 4611dc85a25fd82ced16dfa0b53f452d9bb68b2303feec2871744fccc15d55b3
