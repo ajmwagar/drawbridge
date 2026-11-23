@@ -16,6 +16,7 @@ use num_complex::Complex32;
 const AUDIO_RATE: u32 = 48_000;
 const FRAMES_PER_PACKET: usize = 48;
 const MAX_QUEUED_SAMPLES: usize = AUDIO_RATE as usize * 2;
+const PREBUFFER_FRAMES: usize = AUDIO_RATE as usize * 80 / 1_000;
 const RTP_PAYLOAD_TYPE: u8 = 97;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -287,6 +288,8 @@ fn audio_loop(
     let mut sequence = 0_u16;
     let mut timestamp = 0_u32;
     let mut first = true;
+    let mut primed = false;
+    let mut limiter = 1.0_f32;
     let ssrc = (SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos() as u32)
@@ -300,28 +303,62 @@ fn audio_loop(
         let now = Instant::now();
         if next > now {
             thread::sleep(next - now);
-        } else if now.duration_since(next) > Duration::from_millis(5) {
-            // Do not burst to catch up; the receiver's playout buffer owns the
-            // clock relationship and a burst would drain it.
-            next = now;
+        } else {
+            // Never burst to catch up. A late wakeup is a single missed
+            // packet, which Isochrone conceals; a burst overruns its buffer.
+            next = Instant::now();
         }
+
         let (lock, _) = &*queue;
+        {
+            let queue = lock.lock().unwrap();
+            if !primed {
+                if queue.len() < PREBUFFER_FRAMES {
+                    drop(queue);
+                    thread::sleep(Duration::from_millis(5));
+                    continue;
+                }
+                primed = true;
+            }
+            if queue.len() < FRAMES_PER_PACKET {
+                // Do not inject fabricated silence. Wait for real samples;
+                // the receiver owns concealment, and re-priming here would
+                // turn a short source hiccup into an 80ms gap.
+                drop(queue);
+                thread::sleep(Duration::from_millis(1));
+                continue;
+            }
+        }
+
         let mut mono = [0.0_f32; FRAMES_PER_PACKET];
         let mut queue = lock.lock().unwrap();
-        let available = queue.len().min(FRAMES_PER_PACKET);
-        for sample in mono.iter_mut().take(available) {
+        for sample in &mut mono {
             *sample = queue.pop_front().unwrap_or(0.0);
         }
         drop(queue);
-        if available == 0 && stop.load(Ordering::Relaxed) {
-            break;
-        }
 
         let mut stereo = [0.0_f32; FRAMES_PER_PACKET * 2];
         for (index, sample) in mono.iter().enumerate() {
             stereo[index * 2] = *sample;
             stereo[index * 2 + 1] = *sample;
         }
+
+        // Slow peak limiter. Strong FM can otherwise clip at the RTP/WAV
+        // boundary, which sounds like crackle even when the demod is clean.
+        let peak = stereo
+            .iter()
+            .map(|sample| sample.abs())
+            .fold(0.0_f32, f32::max);
+        let target = if peak > 0.90 { 0.90 / peak } else { 1.0 };
+        limiter = if target < limiter {
+            target
+        } else {
+            (limiter + 0.0005).min(1.0)
+        };
+        for sample in &mut stereo {
+            *sample = (*sample * limiter).clamp(-1.0, 1.0);
+        }
+
         if let Some((_, writer)) = writer.as_mut() {
             for sample in stereo {
                 let _ = writer.write_sample(sample);

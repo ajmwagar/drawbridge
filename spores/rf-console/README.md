@@ -132,7 +132,9 @@ Rust demod path; audio is sent as 48 kHz stereo AES67-style RTP to:
 
 That is `isochrone-soil-receiver` on `home-pi`, which feeds the
 `reference_soil` JACK input in Synesthesia. The receiver stays in its own
-isochronous clock domain and reports fill/correction/underruns.
+isochronous clock domain and reports fill/correction/underruns. Use a
+playout target of at least 60 ms for this network path; a 20 ms target leaves
+no room for USB and scheduler jitter even when the average rate is correct.
 
 `Record` writes 48 kHz stereo float WAV files under:
 

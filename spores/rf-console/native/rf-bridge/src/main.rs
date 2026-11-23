@@ -550,16 +550,24 @@ impl Worker {
             };
             let mut buffer = vec![0_u8; IQ_SAMPLES * 2];
             let mut ema: Option<Vec<f32>> = None;
+            let mut spectrum_tick = 0_u64;
             while !self.stop.load(Ordering::Relaxed) {
                 if let Err(error) = stdout.read_exact(&mut buffer) {
                     self.fail(format!("read IQ: {error}"));
                     break;
                 }
                 let samples = decode_iq(&buffer, &self.spec.driver);
-                let row = fft_row(&samples, self.config.bins);
+                // Audio is the real-time path; keep it fed even when the
+                // spectrum FFT is skipped. The UI only needs a few rows per
+                // second, while demod needs every IQ block.
                 if let Some(audio) = &self.audio {
                     audio.push_iq(&samples);
                 }
+                spectrum_tick = spectrum_tick.wrapping_add(1);
+                if spectrum_tick % 4 != 0 {
+                    continue;
+                }
+                let row = fft_row(&samples, self.config.bins);
                 let row = match ema.take() {
                     Some(previous) => previous
                         .iter()
