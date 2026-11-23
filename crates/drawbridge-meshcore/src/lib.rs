@@ -20,7 +20,7 @@ pub struct MeshCoreClient {
     http: Client,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Health {
     pub schema: String,
     pub device_id: String,
@@ -34,7 +34,7 @@ pub struct Health {
     pub last_error: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RadioHealth {
     pub freq_mhz: f64,
     pub bw_khz: f64,
@@ -119,7 +119,7 @@ impl Conversation {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ChannelKey {
     pub channel_idx: u8,
     pub name: String,
@@ -127,7 +127,7 @@ pub struct ChannelKey {
     pub uri: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SendAck {
     pub request_id: String,
     pub state: String,
@@ -228,6 +228,13 @@ impl MeshCoreClient {
 
     pub async fn advert(&self, flood: bool) -> Result<Value> {
         self.post("/v1/advert", json!({"flood": flood})).await
+    }
+
+    /// Apply a bounded settings object (`name`, `tx_power`,
+    /// `path_hash_mode`, `manual_add_contacts`). The sidecar validates the
+    /// fields; the host validates the Spore-facing types.
+    pub async fn settings(&self, value: Value) -> Result<Value> {
+        self.post("/v1/settings", value).await
     }
 
     pub async fn set_name(&self, name: &str) -> Result<Value> {

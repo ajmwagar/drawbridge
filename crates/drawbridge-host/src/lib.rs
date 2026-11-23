@@ -8,5 +8,6 @@
 
 pub mod backend;
 pub mod ipc;
+pub mod meshcore;
 
 pub use backend::{Backend, IpcRequest, IpcResponse};
