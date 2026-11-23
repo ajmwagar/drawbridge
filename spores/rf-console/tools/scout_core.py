@@ -84,18 +84,54 @@ class TinySA:
         self.port.setRTS(False)
         time.sleep(0.3)
 
-    def command(self, text: str, wait: float, limit: int = 20000) -> str:
+    def command(
+        self,
+        text: str,
+        wait: float,
+        limit: int = 20000,
+        collect: bool = False,
+        stop_lines: int | None = None,
+    ) -> str:
         self.port.reset_input_buffer()
         self.port.write(text.encode() + b"\r")
         time.sleep(wait)
-        return self.port.read(limit).decode("ascii", "ignore")
+        if not collect:
+            pending = self.port.in_waiting
+            return self.port.read(pending).decode("ascii", "ignore") if pending else ""
+
+        # The serial timeout is too coarse for live scanning: read available
+        # bytes until the response goes quiet instead of waiting for a full
+        # serial timeout after every command.
+        chunks: list[bytes] = []
+        total = 0
+        newlines = 0
+        last_data = time.monotonic()
+        deadline = last_data + 4.0
+        while total < limit and time.monotonic() < deadline:
+            pending = self.port.in_waiting
+            if pending:
+                chunk = self.port.read(min(pending, limit - total))
+                if chunk:
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    newlines += chunk.count(b"\n")
+                    last_data = time.monotonic()
+                    if stop_lines is not None and newlines >= stop_lines:
+                        break
+            elif chunks and time.monotonic() - last_data >= 0.2:
+                break
+            else:
+                time.sleep(0.005)
+        return b"".join(chunks).decode("ascii", "ignore")
 
     def amplitudes(self, start_hz: float, stop_hz: float) -> list[float]:
         start = max(0, int(start_hz))
         stop = max(start + 1, int(stop_hz))
-        self.command(f"sweep {start} {stop} {self.points}", 0.3, 2000)
-        self.command("scan", 0.4, 2000)
-        data = self.command("data 0", 0.5, 20000)
+        self.command(f"sweep {start} {stop} {self.points}", 0.2, 2000)
+        self.command("scan", 0.5, 2000)
+        data = self.command(
+            "data 0", 0.2, 20000, collect=True, stop_lines=self.points
+        )
         values: list[float] = []
         for line in data.splitlines():
             try:
@@ -124,7 +160,7 @@ class TinySA:
         }
 
     def restore(self) -> None:
-        self.command("sweep 0 1000000000 200", 0.3, 2000)
+        self.command("sweep 0 1000000000 200", 0.15, 2000)
 
     def close(self) -> None:
         try:

@@ -109,14 +109,24 @@ Run the same service as the radio user, with the serial device explicit:
 sudo -u radioman ./tools/scoutd.py --listen 0.0.0.0:8798 --port /dev/ttyACM1 --antenna AR-771
 ```
 
-Point the `rfscout` frontdoor upstream at the host that has the TinySA:
+The current deployment is on `radioman-pi` at `192.168.2.90`:
 
-```json
-"upstream": "http://100.74.130.83:8798"
+```text
+/opt/rf-console/scoutd.py
+/opt/rf-console/scout_core.py
+/opt/rf-console/index.html
 ```
 
-`tools/rfscoutd.service.example` is the same service as a systemd unit. Adjust
-the path and serial device, then install it next to the frontdoor route.
+The systemd unit is `/etc/systemd/system/rfscoutd.service` and the frontdoor
+upstream is:
+
+```json
+"upstream": "http://192.168.2.90:8798"
+```
+
+The service is deliberately not bound to the public interface. The Mac
+frontdoor proxies `rfscout.myc` to the Pi over the LAN. `tools/rfscoutd.service.example`
+is the same service as a unit; adjust paths and serial device for another host.
 
 The service returns `status: "offline"` with a readable `error` while the
 device is absent, so the UI can distinguish a dead device from an old scan.

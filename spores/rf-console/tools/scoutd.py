@@ -76,8 +76,10 @@ class Scout:
             radio = None
             try:
                 radio = TinySA(port, points=self.points)
+                # Keep the last complete pass labeled live while a later pass
+                # is running. Only the very first pass is "scanning".
                 self.update(
-                    status="scanning",
+                    status="live" if self.state["scanned_at"] else "scanning",
                     serial=port,
                     error=None,
                     scan_started_at=now(),
