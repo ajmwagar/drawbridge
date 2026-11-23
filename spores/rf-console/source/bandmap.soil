@@ -1,0 +1,69 @@
+; SPDX-License-Identifier: MIT OR Apache-2.0
+; The band map: named places worth listening, grouped by what is there.
+;
+; Frequencies are examples for a receive-first console. Modes, bandwidths and
+; spans are starting points; regional and antenna differences matter. The copy
+; is meant to answer "what should I hear?" before someone knows the numbers.
+
+(defun rf/preset (name label category tag device freq mode bw span regions copy hear antenna)
+  (list
+    (list :name name)
+    (list :freq-label label)
+    (list :category category)
+    (list :tag tag)
+    (list :device device)
+    (list :freq freq)
+    (list :mode mode)
+    (list :bw bw)
+    (list :span span)
+    (list :regions regions)
+    (list :copy copy)
+    (list :hear hear)
+    (list :antenna antenna)))
+
+(defun rf/categories ()
+  (list
+    (list  (list :id "all") (list :label "All bands") (list :tab "ALL") (list :intro "Every scenario in the map, grouped below. Start anywhere; the receiver follows the card."))
+    (list  (list :id "weather") (list :label "Weather") (list :tab "WX") (list :intro "Continuous voice forecasts and alerts, plus the satellites that send pictures. Weather radio is the easiest place to hear a real signal immediately."))
+    (list  (list :id "emergency") (list :label "Emergency") (list :tab "EMR") (list :intro "Channels reserved for distress, safety, and shared public use. Long silence is normal; that is what makes a transmission stand out."))
+    (list  (list :id "satellite") (list :label "Satellites") (list :tab "SAT") (list :intro "Short passes carrying images, telemetry, and occasional voice. These need a clear view of the sky and patience between passes."))
+    (list  (list :id "data") (list :label "Data & LoRa") (list :tab "DATA") (list :intro "APRS, MeshCore, LoRa, ISM sensors, and digital weak-signal modes. Expect chirps and bursts rather than a voice you can listen to."))
+    (list  (list :id "aviation") (list :label "Aviation") (list :tab "AIR") (list :intro "AM voice around airports, plus 1090 MHz surveillance. Airband is line-of-sight and busiest near an airport."))
+    (list  (list :id "marine") (list :label "Marine") (list :tab "SEA") (list :intro "VHF marine channels and AIS ship tracking. Range is usually local unless you have height and a good antenna."))
+    (list  (list :id "broadcast") (list :label "Broadcast") (list :tab "FM/TV") (list :intro "Wide commercial signals: FM radio and digital television. These are strong, continuous, and easy to tune by ear or eye."))
+    (list  (list :id "amateur") (list :label "Amateur") (list :tab "HAM") (list :intro "Calling frequencies and digital watering holes used by licensed operators. Activity follows time of day and propagation."))))
+
+(defun rf/presets ()
+  (list
+    (rf/preset "NOAA WX 7" "162.550" "weather" "WX" "hackrf" 162.55 "NFM" 12.5 2 (list "us") "The US weather radio network repeats forecasts, watches, and warnings around the clock. Channel 7 is the primary frequency in many areas." "A synthesized voice cycling the local forecast; alerts interrupt the loop." "Telescopic whip, vertical")
+    (rf/preset "NOAA WX 2" "162.425" "weather" "WX" "hackrf" 162.425 "NFM" 12.5 2 (list "us") "One of the seven NOAA weather radio channels. Which channel carries your local transmitter depends on where you are." "The same forecast loop as channel 7, often from a different transmitter." "Telescopic whip, vertical")
+    (rf/preset "NOAA WX 5" "162.475" "weather" "WX" "hackrf" 162.475 "NFM" 12.5 2 (list "us") "Another NOAA weather channel. Scanning 162.400–162.550 is the quickest way to find the strongest local transmitter." "A weather loop with different signal strength and possibly different coverage." "Telescopic whip, vertical")
+    (rf/preset "NOAA APT" "137.100" "satellite" "IMG" "hackrf" 137.1 "WFM" 200 2 (list "global") "NOAA polar satellites send slow-scan weather images on VHF. Passes last minutes and the signal moves quickly." "A warbling APT tone; software turns it into a grayscale cloud image." "137 MHz V-dipole or turnstile")
+    (rf/preset "GOES HRIT" "1694.100" "satellite" "IMG" "hackrf" 1694.1 "USB" 200 2 (list "global") "Geostationary weather satellites downlink higher-rate imagery in L-band. This needs a dish and a decoder more than a casual whip." "A wide digital signal; no voice, and usually no decode without the right antenna." "L-band dish or grid antenna")
+    (rf/preset "ISS Voice" "145.800" "satellite" "HAM" "hackrf" 145.8 "NFM" 25 1 (list "global") "The International Space Station sometimes transmits voice and packet on the amateur 2m band during a pass." "Short voice contacts or APRS packet bursts while the station is overhead." "2m whip or small directional")
+    (rf/preset "Guard" "121.500" "emergency" "EMR" "hackrf" 121.5 "AM" 25 1 (list "global") "The international aviation emergency frequency. Silence is the normal state; a transmission is exceptional." "Brief AM voice, an ELT sweep, or nothing at all." "Airband whip, vertical")
+    (rf/preset "Marine 16" "156.800" "emergency" "SEA" "hackrf" 156.8 "NFM" 25 1 (list "global") "VHF marine channel 16 is reserved for distress, safety, and calling. Most traffic is short and procedural." "Coast guard broadcasts, bridge calls, and radio checks." "VHF marine whip")
+    (rf/preset "GMRS 462" "462.675" "emergency" "EMR" "hackrf" 462.675 "NFM" 25 1 (list "us") "US GMRS/FRS channels carry family, off-road, and neighborhood traffic. Repeater use varies by license and location." "Short FM voice bursts, often with a CTCSS tone or a repeater tail." "UHF whip")
+    (rf/preset "APRS" "144.390" "data" "DATA" "hackrf" 144.39 "NFM" 12.5 0.5 (list "global") "APRS carries position, weather, and short telemetry on 1200-baud AFSK. The frequency is regional; 144.390 is common in North America." "Brief data bursts every few minutes from nearby trackers and digipeaters." "2m whip")
+    (rf/preset "MeshCore" "915.000" "data" "DATA" "meshcore" 915 "NFM" 125 2 (list "us") "MeshCore uses LoRa packet radio for off-grid text, telemetry, and mesh routing. It is not a voice service." "Chirpy LoRa bursts and short packets; a mesh client is needed to read them." "915 MHz LoRa antenna")
+    (rf/preset "LoRa 868" "868.100" "data" "DATA" "hackrf" 868.1 "NFM" 125 1 (list "europe") "European ISM LoRa gateways and sensors use 868 MHz. Duty cycle and regional rules shape how often they transmit." "Long chirps with quiet gaps; decoders are needed to recover payloads." "868 MHz LoRa antenna")
+    (rf/preset "ISM 433" "433.920" "data" "DATA" "hackrf" 433.92 "NFM" 25 1 (list "global") "433 MHz is crowded with remotes, weather sensors, tire sensors, and keyfobs. Most packets are very short." "Tiny digital chirps and repeated sensor bursts, not continuous audio." "433 MHz whip")
+    (rf/preset "40m FT8" "7.074" "data" "DATA" "hackrf" 7.074 "USB" 3 0.5 (list "global") "FT8 is a narrow digital mode for weak-signal contacts. It packs a contact into 15-second sequences." "A rhythmic sequence of tones, repeating in 15-second slots." "HF longwire or dipole")
+    (rf/preset "Tower" "118.000" "aviation" "AIR" "hackrf" 118.0 "AM" 25 1 (list "global") "Airband tower and ground frequencies sit just above 118 MHz. Exact assignments vary by airport." "Clipped AM voice: clearances, taxi instructions, and readbacks." "Airband whip, vertical")
+    (rf/preset "ATIS" "135.000" "aviation" "AIR" "hackrf" 135.0 "AM" 25 1 (list "global") "ATIS is a recorded airport information loop with weather and runway status. Frequencies vary by airport." "A steady recorded voice repeating weather and airport conditions." "Airband whip, vertical")
+    (rf/preset "ADS-B" "1090.000" "aviation" "DATA" "rtl" 1090 "AM" 200 5 (list "global") "Aircraft broadcast identity, position, and altitude on 1090 MHz. It is a data signal, not voice." "Short pulses from many aircraft; a decoder turns them into a live map." "1090 MHz whip or PCB antenna")
+    (rf/preset "AIS 1" "161.975" "marine" "DATA" "rtl" 161.975 "NFM" 25 0.5 (list "global") "Ships and shore stations exchange identity, position, and course over AIS. Channel 1 is one of two AIS frequencies." "Short digital bursts; a decoder shows vessels on a map." "VHF marine whip")
+    (rf/preset "AIS 2" "162.025" "marine" "DATA" "rtl" 162.025 "NFM" 25 0.5 (list "global") "The second AIS channel. Larger harbors may use both channels heavily." "The same ship-tracking bursts as AIS 1, often from different vessels." "VHF marine whip")
+    (rf/preset "FM 90.3" "90.300" "broadcast" "FM" "hackrf" 90.3 "WFM" 200 10 (list "us") "A typical FM broadcast frequency. Commercial stations are continuous and very strong compared with the signals above." "Music, ads, and DJ talk; the receiver should sound immediately intelligible." "FM broadcast whip or dipole")
+    (rf/preset "FM 98.1" "98.100" "broadcast" "FM" "hackrf" 98.1 "WFM" 200 10 (list "us") "Another FM broadcast example. Use the band map as a starting point, then scan nearby for a stronger station." "A different music or talk format; stereo pilot tones may be visible in the spectrum." "FM broadcast whip or dipole")
+    (rf/preset "ATSC 533" "533.000" "broadcast" "TV" "hackrf" 533 "AM" 200 10 (list "us") "A US digital television channel example. ATSC occupies a 6 MHz block and carries several subchannels." "A wide noisy-looking block that a TV tuner turns into video and audio; this view is spectrum only." "TV antenna with coax")
+    (rf/preset "2m Call" "146.520" "amateur" "HAM" "hackrf" 146.52 "NFM" 25 1 (list "global") "The national 2m calling frequency in the US and a common simplex meeting place elsewhere. Activity is local and informal." "Short FM voice contacts; move to another simplex frequency to continue." "2m whip")
+    (rf/preset "70cm Call" "446.000" "amateur" "HAM" "hackrf" 446.0 "NFM" 25 1 (list "global") "A common 70cm calling frequency. Local repeater and simplex activity varies a lot by city." "Short FM voice contacts, repeater IDs, or silence." "70cm whip")))
+
+(defun rf/gps ()
+  (list
+    (list :fix #f)
+    (list :source "MeshCore GPS")
+    (list :region "us")
+    (list :label "US / Pacific NW")
+    (list :note "No fix yet · using the last known region")))

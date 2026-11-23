@@ -1,0 +1,358 @@
+; SPDX-License-Identifier: MIT OR Apache-2.0
+; The RF Deck document. Soil owns the shell, receiver rail, controls, presets,
+; and initial labels. The browser script owns only the animated canvases and
+; in-place state updates.
+
+(defun rf/esc (value)
+  (html-escape (str value)))
+
+(defun rf/fill (value)
+  (if (nil? value) "" (rf/esc value)))
+
+(defun rf/category-icon (id)
+  (cond
+    ((= id "weather")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 15a4 4 0 0 1 .6-7.9A5.5 5.5 0 0 1 16 8.5 3.5 3.5 0 0 1 18 15H5Z\"/></svg>")
+    ((= id "emergency")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 3.5 21 20H3L12 3.5Z\"/><path d=\"M12 9v5\"/><path d=\"M12 17v.5\"/></svg>")
+    ((= id "satellite")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m8 8 8 8\"/><path d=\"m5 5 3 3\"/><path d=\"m16 16 3 3\"/><path d=\"M4 13a7 7 0 0 1 7-7\"/><path d=\"M7 16a4 4 0 0 1 4-4\"/></svg>")
+    ((= id "data")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12h3l2-6 4 13 3-9 2 2h4\"/></svg>")
+    ((= id "aviation")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 13h18\"/><path d=\"m8 13 4-7 4 7\"/><path d=\"m8 13 4 7 4-7\"/></svg>")
+    ((= id "marine")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 15c2 2 4 2 6 0s4-2 6 0 4 2 6 0\"/><path d=\"M5 10h14l-2 5H7l-2-5Z\"/></svg>")
+    ((= id "broadcast")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"2\"/><path d=\"M7 7a7 7 0 0 0 0 10\"/><path d=\"M17 7a7 7 0 0 1 0 10\"/></svg>")
+    ((= id "amateur")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 21V8\"/><path d=\"M8 21h8\"/><path d=\"m12 8-5-5\"/><path d=\"m12 8 5-5\"/></svg>")
+    (else
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 12h16\"/><path d=\"M12 4v16\"/></svg>")))
+
+(defun rf/device-name-in (devices id)
+  (if (nil? devices)
+      id
+      (if (= (field (first devices) :id) id)
+          (field (first devices) :name)
+          (rf/device-name-in (rest devices) id))))
+
+(defun rf/device-name (id)
+  (rf/device-name-in (rf/devices) id))
+
+(defun rf/state-class (device)
+  (if (field (field device :initial) :running) "is-rx" "is-idle"))
+
+(defun rf/state-text (device)
+  (if (field (field device :initial) :running) "RX" "IDLE"))
+
+(defun rf/icon (kind)
+  (cond
+    ((= kind "packet")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.35\"><path d=\"m12 3 7 4v10l-7 4-7-4V7l7-4Z\"/><path d=\"m5 7 7 4 7-4\"/><path d=\"M12 11v10\"/></svg>")
+    ((= kind "atsc")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.35\"><rect x=\"4\" y=\"5\" width=\"16\" height=\"12\" rx=\"1\"/><path d=\"M9 21h6\"/><path d=\"M12 17v4\"/><path d=\"m8 9 3 3 3-3\"/></svg>")
+    (else
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.35\"><path d=\"M12 20V9\"/><path d=\"M8 20h8\"/><path d=\"M12 9c-2.8 0-5-2.2-5-5\"/><path d=\"M12 9c2.8 0 5-2.2 5-5\"/><path d=\"M12 9c-1.1 0-2-.9-2-2\"/><path d=\"M12 9c1.1 0 2-.9 2-2\"/></svg>")))
+
+(defun rf/device-row (device active)
+  (str
+    "<button type=\"button\" class=\"device-row"
+    (if active " is-active" "")
+    "\" data-device=\"" (attr-escape (field device :id)) "\" role=\"option\" aria-selected=\""
+    (if active "true" "false") "\">"
+    "<span class=\"device-icon\">" (rf/icon (field device :kind)) "</span>"
+    "<span class=\"device-copy\">"
+    "<span class=\"device-name\">" (rf/fill (field device :name)) "</span>"
+    "<span class=\"device-meta\">" (rf/fill (field device :code)) "</span>"
+    "</span>"
+    "<span class=\"device-state " (rf/state-class device) "\"><span class=\"status-dot\" aria-hidden=\"true\"></span>"
+    (rf/state-text device) "</span></button>"))
+
+(defun rf/device-rows (devices active-id)
+  (if (nil? devices)
+      ""
+      (str
+        (rf/device-row (first devices) (= (field (first devices) :id) active-id))
+        (rf/device-rows (rest devices) active-id))))
+
+(defun rf/event-row (event)
+  (str "<li><time>" (rf/fill (field event :time)) "</time><span>"
+       (rf/fill (field event :text)) "</span></li>"))
+
+(defun rf/event-rows (events)
+  (string-join (map 'rf/event-row events) ""))
+
+(defun rf/mode-button (mode)
+  (str "<button type=\"button\" data-mode=\"" (attr-escape mode) "\""
+       (if (= mode "NFM") " class=\"is-active\"" "")
+       ">" (rf/esc mode) "</button>"))
+
+(defun rf/mode-buttons (modes)
+  (string-join (map 'rf/mode-button modes) ""))
+
+(defun rf/region-label (region)
+  (cond
+    ((= region "us") "US")
+    ((= region "europe") "EU")
+    ((= region "global") "GLOBAL")
+    (else region)))
+
+(defun rf/region-labels (regions)
+  (string-join (map 'rf/region-label regions) " · "))
+
+(defun rf/category-presets (presets category)
+  (if (nil? presets)
+      nil
+      (if (= (field (first presets) :category) category)
+          (cons (first presets) (rf/category-presets (rest presets) category))
+          (rf/category-presets (rest presets) category))))
+
+(defun rf/first-n (items n)
+  (if (or (nil? items) (<= n 0))
+      nil
+      (cons (first items) (rf/first-n (rest items) (- n 1)))))
+
+(defun rf/preset-names (presets)
+  (map (lambda (preset) (field preset :name)) (rf/first-n presets 3)))
+
+(defun rf/folder-card (category presets)
+  (let ((items (rf/category-presets presets (field category :id))))
+    (str
+      "<button type=\"button\" class=\"folder-card\" data-bandmap-category=\""
+      (attr-escape (field category :id)) "\">"
+      "<span class=\"folder-tab\">" (rf/fill (field category :tab)) "</span>"
+      "<span class=\"folder-head\"><span class=\"folder-title\"><span class=\"folder-symbol\">"
+      (rf/category-icon (field category :id)) "</span><span class=\"folder-name\">"
+      (rf/fill (field category :label)) "</span></span>"
+      "<span class=\"folder-count\">" (length items) " places</span></span>"
+      "<span class=\"folder-intro\">" (rf/fill (field category :intro)) "</span>"
+      "<span class=\"folder-samples\">" (rf/fill (string-join (rf/preset-names items) " · ")) "</span>"
+      "<span class=\"folder-scout\" data-folder-scout>Scout · waiting</span>"
+      "</button>")))
+
+(defun rf/folder-cards (categories presets)
+  (if (nil? categories)
+      ""
+      (if (= (field (first categories) :id) "all")
+          (rf/folder-cards (rest categories) presets)
+          (str
+            (rf/folder-card (first categories) presets)
+            (rf/folder-cards (rest categories) presets)))))
+
+(defun rf/band-card (preset)
+  (str
+    "<button type=\"button\" class=\"band-card\" data-category=\""
+    (attr-escape (field preset :category))
+    "\" data-regions=\"" (attr-escape (string-join (field preset :regions) ","))
+    "\" data-scenario=\"" (attr-escape (field preset :name)) "\">"
+    "<span class=\"band-card-head\"><span>"
+    "<span class=\"band-card-name\">" (rf/fill (field preset :name)) "</span>"
+    "<span class=\"band-card-freq\">" (rf/fill (field preset :freq-label)) " MHz · "
+    (rf/fill (field preset :mode)) " · " (rf/fill (field preset :bw)) " kHz</span></span>"
+    "<span class=\"band-card-go\" aria-hidden=\"true\">Tune →</span></span>"
+    "<span class=\"band-card-copy\">" (rf/fill (field preset :copy)) "</span>"
+    "<span class=\"band-card-hear\"><span>Listen for</span>"
+    (rf/fill (field preset :hear)) "</span>"
+    "<span class=\"band-card-scout\" data-scout-for=\"" (attr-escape (field preset :name)) "\">"
+    "Scout · waiting</span>"
+    "<span class=\"band-card-rig\">"
+    "<span><span class=\"band-card-label\">Radio</span>" (rf/fill (rf/device-name (field preset :device))) "</span>"
+    "<span><span class=\"band-card-label\">Antenna</span>" (rf/fill (field preset :antenna)) "</span>"
+    "</span>"
+    "<span class=\"band-card-foot\"><span>" (rf/fill (field preset :tag)) "</span>"
+    "<span>" (rf/fill (rf/region-labels (field preset :regions))) "</span></span>"
+    "</button>"))
+
+(defun rf/band-cards (presets)
+  (string-join (map 'rf/band-card presets) ""))
+
+(defun rf/band-group (category presets)
+  (let ((items (rf/category-presets presets (field category :id))))
+    (str "<section class=\"bandmap-group\" data-bandmap-group=\""
+         (attr-escape (field category :id)) "\""
+         " hidden>"
+         "<div class=\"bandmap-group-head\"><div class=\"bandmap-group-title\"><span class=\"group-symbol\">"
+         (rf/category-icon (field category :id)) "</span><h3>"
+         (rf/fill (field category :label)) "</h3></div>"
+         "<p>" (rf/fill (field category :intro)) "</p></div>"
+         "<div class=\"bandmap-cards\">" (rf/band-cards items) "</div></section>")))
+
+(defun rf/band-groups (categories presets)
+  (if (nil? categories)
+      ""
+      (if (= (field (first categories) :id) "all")
+          (rf/band-groups (rest categories) presets)
+          (str
+            (rf/band-group (first categories) presets)
+            (rf/band-groups (rest categories) presets)))))
+
+(defun rf/bandmap ()
+  (str
+    "<div class=\"bandmap\" id=\"bandmap\" hidden>"
+    "<div class=\"bandmap-backdrop\" data-bandmap-close></div>"
+    "<section class=\"bandmap-sheet\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"bandmap-title\">"
+    "<header class=\"bandmap-head\"><div>"
+    "<p class=\"eyebrow\">Band map · live receiver</p>"
+    "<h2 id=\"bandmap-title\">What do you want to hear?</h2>"
+    "<p class=\"bandmap-lede\">Pick a place to start. Each card tunes the selected receiver and explains what should be there before you know the numbers.</p>"
+    "</div><button type=\"button\" class=\"bandmap-close\" id=\"bandmap-close\">Close</button></header>"
+    "<div class=\"bandmap-regionbar\">"
+    "<label class=\"bandmap-field\"><span>Region</span>"
+    "<select id=\"bandmap-region\"><option value=\"auto\">Auto · GPS</option>"
+    "<option value=\"all\">All regions</option><option value=\"us\">United States</option>"
+    "<option value=\"europe\">Europe</option></select></label>"
+    "<span class=\"bandmap-gps\" id=\"bandmap-gps\">No GPS fix · "
+    (rf/fill (field (rf/gps) :label)) "</span>"
+    "<span class=\"bandmap-scout\" id=\"bandmap-scout\">Scout · waiting</span>"
+    "<span class=\"bandmap-count\" id=\"bandmap-count\">24 places</span></div>"
+    "<div class=\"bandmap-breadcrumb\" id=\"bandmap-breadcrumb\">"
+    "<button type=\"button\" class=\"bandmap-crumb\" data-bandmap-category=\"folders\">All bands</button>"
+    "<span class=\"bandmap-crumb-sep\">/</span>"
+    "<span class=\"bandmap-crumb-current\" id=\"bandmap-crumb\">Folders</span></div>"
+    "<div class=\"bandmap-body\">"
+    "<div class=\"bandmap-content\" id=\"bandmap-content\">"
+    "<section class=\"bandmap-folders\" id=\"bandmap-folders\">"
+    (rf/folder-cards (rf/categories) (rf/presets)) "</section>"
+    "<div class=\"bandmap-groups\" id=\"bandmap-groups\" hidden>"
+    (rf/band-groups (rf/categories) (rf/presets)) "</div></div></div>"
+    "<footer class=\"bandmap-foot\"><span>Frequencies are starting points. Antenna, location, and time of day decide what is actually audible.</span>"
+    "<div><button type=\"button\" class=\"bandmap-step\" id=\"bandmap-prev\">‹ Previous</button>"
+    "<button type=\"button\" class=\"bandmap-step\" id=\"bandmap-next\">Next ›</button></div></footer>"
+    "</section></div>"))
+
+(defun rf/state-json ()
+  (json-encode
+    (list
+      (list :devices (rf/devices))
+      (list :presets (rf/presets))
+      (list :categories (rf/categories))
+      (list :gps (rf/gps))
+      (list :scout
+        (list
+          (list :url "https://rfscout.myc/scout.json")
+          (list :fallback "scout.json")
+          (list :interval-ms 15000)))
+      (list :sdr
+        (list
+          (list :url "https://rfscout.myc/sdr")
+          (list :enabled #t))))))
+
+(defun rf/page ()
+  (let ((device (first (rf/devices)))
+        (initial (field (first (rf/devices)) :initial)))
+    (str
+      "<!-- generated by source/ui.soil; edit Soil, then run tools/export.sh -->\n<!doctype html>\n"
+      "<html lang=\"en\">\n<head>\n"
+      "<meta charset=\"utf-8\">\n"
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+      "<meta name=\"color-scheme\" content=\"dark\">\n"
+      "<title>RF Deck · Radioman console</title>\n"
+      "<link rel=\"stylesheet\" href=\"rf-console.css?v=audio1\">\n"
+      "<script type=\"module\" src=\"rf-console.js?v=audio2\"></script>\n"
+      "</head>\n<body>\n"
+      "<div class=\"app\">\n"
+      "<header class=\"topbar\">\n"
+      "<div class=\"brand\"><span class=\"brand-mark\" aria-hidden=\"true\">◈</span>"
+      "<span class=\"brand-name\">RADIOMAN</span><span class=\"brand-sub\">RF DECK</span></div>\n"
+      "<div class=\"topbar-status\">"
+      "<span class=\"status-item\"><span class=\"status-dot is-live\" aria-hidden=\"true\"></span>"
+      "<span id=\"device-count\">3 devices</span></span>"
+      "<span class=\"status-item sim-badge\" id=\"feed-badge\">SIMULATED SPECTRUM · LIVE SCOUT</span>"
+      "<time id=\"utc-clock\" class=\"clock\">--:--:-- UTC</time></div>\n"
+      "</header>\n"
+      "<main class=\"console\">\n"
+      "<aside class=\"rail\" aria-label=\"Receivers\">\n"
+      "<div class=\"rail-head\"><h2>Receivers</h2><span class=\"count\" id=\"receiver-count\">03</span></div>\n"
+      "<div class=\"device-list\" id=\"device-list\" role=\"listbox\" aria-label=\"Select a receiver\">"
+      (rf/device-rows (rf/devices) (field device :id))
+      "</div>\n"
+      "<section class=\"rail-events\" aria-label=\"Recent events\">"
+      "<div class=\"rail-head\"><h2>Recent</h2><span class=\"count\">LIVE</span></div>"
+      "<ol class=\"events\" id=\"events\">" (rf/event-rows (rf/events)) "</ol></section>\n"
+      "</aside>\n"
+      "<section class=\"scope-panel\" aria-label=\"Spectrum and waterfall\">\n"
+      "<div class=\"scope-head\"><div class=\"scope-title\">"
+      "<p class=\"eyebrow\">Selected receiver</p>"
+      "<h1 id=\"receiver-title\">" (rf/fill (field device :name)) "</h1>"
+      "<p class=\"receiver-meta\" id=\"receiver-meta\">" (rf/fill (field device :code)) " · "
+      (rf/fill (field device :meta)) "</p></div>\n"
+      "<div class=\"scope-actions\">"
+      "<button type=\"button\" class=\"band-picker\" id=\"band-picker\">Pick a band</button>"
+      "<label class=\"field-compact\" for=\"span\"><span>Span</span>"
+      "<select id=\"span\"><option value=\"0.5\">0.5 MHz</option><option value=\"1\">1 MHz</option>"
+      "<option value=\"2\" selected>2 MHz</option><option value=\"5\">5 MHz</option>"
+      "<option value=\"10\">10 MHz</option></select></label>"
+      "<button type=\"button\" class=\"toggle\" id=\"peak-hold\" aria-pressed=\"true\">Peak hold</button>"
+      "<button type=\"button\" class=\"primary\" id=\"rx-toggle\">Stop RX</button>"
+      "</div></div>\n"
+      "<div class=\"scope-card\"><canvas id=\"spectrum\" aria-label=\"Spectrum\"></canvas>"
+      "<span class=\"scope-corner scope-corner-a\">dBFS</span>"
+      "<span class=\"scope-corner scope-corner-b\" id=\"scope-center\">"
+      (rf/fill (field initial :freq-label)) " MHz</span></div>\n"
+      "<div class=\"axis-row\" aria-hidden=\"true\">"
+      "<span id=\"axis-a\">161.55</span><span id=\"axis-b\">162.05</span>"
+      "<span id=\"axis-c\">162.55</span><span id=\"axis-d\">163.05</span>"
+      "<span id=\"axis-e\">163.55</span></div>\n"
+      "<div class=\"waterfall-wrap\"><canvas id=\"waterfall\" aria-label=\"Waterfall\"></canvas>"
+      "<div class=\"waterfall-scale\" aria-hidden=\"true\"><span>−40</span><span>−70</span><span>−100</span></div></div>\n"
+      "<div class=\"scope-foot\"><span>FFT <b>2048</b></span><span>BINS <b>512 visible</b></span>"
+      "<span>RATE <b id=\"foot-rate\">20 fps</b></span><span>DROPPED <b>0</b></span>"
+      "<span class=\"scope-foot-end\">DRAG TO TUNE · WHEEL TO NUDGE</span></div>\n"
+      "</section>\n"
+      "<aside class=\"inspector\" aria-label=\"Receiver controls\">\n"
+      "<section class=\"tune-block\"><p class=\"eyebrow\">Tuned frequency</p>"
+      "<div class=\"freq-readout\"><span id=\"freq-major\">" (rf/fill (field initial :freq-label)) "</span>"
+      "<span class=\"freq-unit\">MHz</span></div>"
+      "<div class=\"tune-steps\" aria-label=\"Tuning step\">"
+      "<button type=\"button\" class=\"step\" data-step=\"-0.025\">−25k</button>"
+      "<button type=\"button\" class=\"step\" data-step=\"-0.001\">−1k</button>"
+      "<button type=\"button\" class=\"step\" data-step=\"0.001\">+1k</button>"
+      "<button type=\"button\" class=\"step\" data-step=\"0.025\">+25k</button></div>"
+      "<p class=\"tune-note\" id=\"tune-note\">Weather band · carrier centered</p></section>\n"
+      "<section class=\"control-group\"><div class=\"group-head\"><h2>Demodulation</h2>"
+      "<span class=\"group-value\" id=\"mode-note\">NFM</span></div>"
+      "<div class=\"mode-grid\" id=\"mode-grid\" role=\"group\" aria-label=\"Demodulation mode\">"
+      (rf/mode-buttons (rf/modes)) "</div></section>\n"
+      "<section class=\"control-group\"><div class=\"group-head\"><h2>Bandwidth</h2>"
+      "<output class=\"group-value\" id=\"bw-value\">12.5 kHz</output></div>"
+      "<div class=\"slider\"><span class=\"slider-rail\"><span class=\"slider-fill\"></span></span>"
+      "<span class=\"slider-thumb\" aria-hidden=\"true\"></span>"
+      "<input type=\"range\" id=\"bandwidth\" min=\"6\" max=\"200\" step=\"0.5\" value=\"12.5\" aria-label=\"Bandwidth\"></div>"
+      "<div class=\"range-labels\"><span>6k</span><span>200k</span></div></section>\n"
+      "<section class=\"control-group\"><div class=\"group-head\"><h2>Gain</h2>"
+      "<output class=\"group-value\" id=\"gain-value\">22 dB</output></div>"
+      "<div class=\"slider\"><span class=\"slider-rail\"><span class=\"slider-fill\"></span></span>"
+      "<span class=\"slider-thumb\" aria-hidden=\"true\"></span>"
+      "<input type=\"range\" id=\"gain\" min=\"0\" max=\"40\" step=\"0.1\" value=\"22\" aria-label=\"Gain\"></div>"
+      "<div class=\"range-labels\"><span>0</span><span>40</span></div></section>\n"
+      "<section class=\"control-group\"><div class=\"group-head\"><h2>Squelch</h2>"
+      "<output class=\"group-value\" id=\"squelch-value\">−92 dBFS</output></div>"
+      "<div class=\"slider\"><span class=\"slider-rail\"><span class=\"slider-fill\"></span></span>"
+      "<span class=\"slider-thumb\" aria-hidden=\"true\"></span>"
+      "<input type=\"range\" id=\"squelch\" min=\"-120\" max=\"-20\" step=\"1\" value=\"-92\" aria-label=\"Squelch\"></div>"
+      "<div class=\"range-labels\"><span>−120</span><span>−20</span></div></section>\n"
+      "<section class=\"meter-block\" aria-label=\"Signal level\"><div class=\"group-head\">"
+      "<h2>Signal</h2><span class=\"group-value\" id=\"signal-value\">−41 dBFS</span></div>"
+      "<div class=\"meter\" aria-hidden=\"true\"><span class=\"meter-fill\" id=\"meter-fill\"></span>"
+      "<span class=\"meter-mark\" style=\"left: 68%\"></span></div>"
+      "<div class=\"meter-foot\"><span>NOISE −104</span><span>PEAK −41</span><span>SNR 63</span></div></section>\n"
+      "<section class=\"record-block\"><div><p class=\"eyebrow\">Capture</p>"
+      "<p class=\"record-note\" id=\"record-note\">No active recording</p></div>"
+      "<div class=\"record-actions\"><button type=\"button\" class=\"toggle\" id=\"monitor-toggle\" aria-pressed=\"false\">Monitor</button>"
+      "<button type=\"button\" class=\"record\" id=\"record-toggle\" aria-pressed=\"false\">Record</button></div></section>\n"
+      "</aside>\n"
+      "</main>\n"
+      "<footer class=\"statusbar\">"
+      "<span><span class=\"status-dot is-live\" aria-hidden=\"true\"></span><b id=\"status-label\">RECEIVING</b></span>"
+      "<span>DEVICE <b id=\"status-device\">HACKRF</b></span>"
+      "<span>SESSION <b id=\"status-session\">00:42:17</b></span>"
+      "<span>IQ <b>2.000 MS/s · ci8</b></span>"
+      "<span class=\"statusbar-end\">LOAM / RF CONSOLE v0</span></footer>\n"
+      "</div>\n"
+      (rf/bandmap)
+      "<script id=\"rf-state\" type=\"application/json\">" (rf/state-json) "</script>\n"
+      "</body>\n</html>\n")))
+
+(defun main ()
+  (println (rf/page)))

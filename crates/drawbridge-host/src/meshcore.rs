@@ -96,7 +96,67 @@ impl Backend for MeshCoreBackend {
                 let flood = params["flood"].as_bool().unwrap_or(true);
                 Ok(self.client.advert(flood).await?)
             }
-            "settings" => Ok(self.client.settings(params).await?),
+            "settings" => {
+                let mut body = serde_json::Map::new();
+                if let Some(name) = params["name"].as_str() {
+                    body.insert("name".into(), json!(name));
+                }
+                if let Some(power) = params["tx-power"].as_i64() {
+                    body.insert("tx_power".into(), json!(power));
+                }
+                if let Some(mode) = params["path-hash-mode"].as_u64() {
+                    body.insert("path_hash_mode".into(), json!(mode));
+                }
+                if let Some(manual) = params["manual-add-contacts"].as_bool() {
+                    body.insert("manual_add_contacts".into(), json!(manual));
+                }
+                Ok(self.client.settings(Value::Object(body)).await?)
+            }
+            "channels" => {
+                let channels = self.client.channels().await?;
+                let mut out: Vec<Value> = channels
+                    .iter()
+                    .filter_map(|(key, value)| {
+                        let index: u8 = key.parse().ok()?;
+                        let name = value
+                            .as_str()
+                            .map(str::to_string)
+                            .or_else(|| {
+                                value
+                                    .get("name")
+                                    .or_else(|| value.get("label"))
+                                    .and_then(Value::as_str)
+                                    .map(str::to_string)
+                            })
+                            .unwrap_or_default();
+                        Some(json!({"index": index, "name": name}))
+                    })
+                    .collect();
+                out.sort_by_key(|value| value["index"].as_u64().unwrap_or(0));
+                Ok(json!({"channels": out}))
+            }
+            "contacts" => {
+                let contacts = self.client.contacts().await?;
+                let mut out: Vec<Value> = contacts
+                    .iter()
+                    .map(|(key, value)| {
+                        let public_key = value
+                            .get("public_key")
+                            .and_then(Value::as_str)
+                            .unwrap_or(key);
+                        let prefix = public_key.chars().take(12).collect::<String>();
+                        let chat = value.get("type").and_then(Value::as_u64) == Some(1);
+                        json!({
+                            "prefix": prefix,
+                            "name": value.get("adv_name").and_then(Value::as_str),
+                            "public-key": public_key,
+                            "chat": chat,
+                        })
+                    })
+                    .collect();
+                out.sort_by(|a, b| a["prefix"].as_str().cmp(&b["prefix"].as_str()));
+                Ok(json!({"contacts": out}))
+            }
             "channel.create" => {
                 let name = params["name"]
                     .as_str()

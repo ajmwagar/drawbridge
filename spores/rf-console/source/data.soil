@@ -1,0 +1,78 @@
+; SPDX-License-Identifier: MIT OR Apache-2.0
+; RF Deck: mock receiver data rendered by Soil.
+;
+; This file owns the receiver inventory, presets, and the initial page state.
+; The browser script only draws the spectrum/waterfall and updates the DOM in
+; response to controls; it does not define the radio inventory.
+
+(defun rf/initial (freq label mode bw gain squelch span running recording)
+  (list
+    (list :freq freq)
+    (list :freq-label label)
+    (list :mode mode)
+    (list :bw bw)
+    (list :gain gain)
+    (list :squelch squelch)
+    (list :span span)
+    (list :running running)
+    (list :recording recording)))
+
+(defun rf/signal (freq width power label)
+  (list
+    (list :freq freq)
+    (list :width width)
+    (list :power power)
+    (list :label label)))
+
+(defun rf/devices ()
+  (list
+    (list
+      (list :id "hackrf")
+      (list :name "HackRF One")
+      (list :code "hackrf/78d0…")
+      (list :kind "sdr")
+      (list :meta "1–20 MS/s · 0–7250 MHz")
+      (list :noise -104)
+      (list :signals
+        (list
+          (rf/signal 162.55 0.0125 -41 "NOAA 7")
+          (rf/signal 162.425 0.0125 -63 "WX 2")
+          (rf/signal 162.475 0.0125 -71 "")
+          (rf/signal 144.39 0.012 -58 "APRS")))
+      (list :initial (rf/initial 162.55 "162.550" "NFM" 12.5 22 -92 2 #t #f)))
+    (list
+      (list :id "rtl")
+      (list :name "RTL-SDR Blog V4")
+      (list :code "rtl/00000001")
+      (list :kind "sdr")
+      (list :meta "24–1764 MHz · 2.4 MS/s")
+      (list :noise -102)
+      (list :signals
+        (list
+          (rf/signal 1090 0.08 -48 "MODE-S")
+          (rf/signal 161.975 0.025 -57 "AIS 1")
+          (rf/signal 162.025 0.025 -64 "AIS 2")))
+      (list :initial (rf/initial 1090 "1090.000" "AM" 200 38.6 -80 5 #t #f)))
+    (list
+      (list :id "meshcore")
+      (list :name "MeshCore")
+      (list :code "meshcore/69f5…")
+      (list :kind "packet")
+      (list :meta "packet radio · 350 contacts")
+      (list :noise -110)
+      (list :signals
+        (list
+          (rf/signal 915 0.5 -62 "LORA")
+          (rf/signal 915.52 0.35 -73 "")
+          (rf/signal 914.5 0.3 -78 "")))
+      (list :initial (rf/initial 915 "915.000" "NFM" 125 18 -100 2 #t #f)))))
+
+(defun rf/events ()
+  (list
+    (list (list :time "14:02:11") (list :text "NOAA 7 carrier acquired on HackRF One"))
+    (list (list :time "14:01:48") (list :text "MeshCore advert heard · 3 hops"))
+    (list (list :time "13:59:22") (list :text "ADS-B track 0x4CA2B1 resolved"))
+    (list (list :time "13:57:05") (list :text "RTL-SDR Blog V4 returned to idle"))))
+
+(defun rf/modes ()
+  (list "AM" "NFM" "WFM" "USB" "LSB" "CW"))

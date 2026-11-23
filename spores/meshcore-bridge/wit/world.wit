@@ -7,7 +7,12 @@ package ajmwagar:meshcore-bridge@0.1.0;
 
 world bridge {
   import ajmwagar:drawbridge/bridge@0.1.0;
+  import wasi:cli/environment@0.2.4;
 
-  /// Run the bridge loop. Intended to be launched as a long-lived command.
+  /// Run the bridge loop with an explicit argument list. Used by a host that
+  /// embeds this world directly.
   export run: func(args: list<string>) -> result<string, string>;
+
+  /// The same loop as a normal Loam CLI command.
+  export wasi:cli/run@0.2.4;
 }

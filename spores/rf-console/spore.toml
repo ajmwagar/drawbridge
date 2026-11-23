@@ -1,0 +1,35 @@
+schema = 1
+
+[spore]
+id = "dev.ajmwagar.rf-console"
+name = "rf-console"
+version = "0.1.0"
+license = "Apache-2.0 OR MIT"
+summary = "A receiver console for SDRs, packet radios, and broadcast tuners"
+
+[engine]
+soil = ">=0.1"
+target = "wasm32-wasip2"
+
+[launch]
+default = "console"
+surfaces = ["web"]
+
+[[surfaces]]
+name = "console"
+kind = "web"
+entry = "web/index.html"
+
+[anycast]
+name = "drawbridge"
+kind = "rf-console"
+alpns = ["soil/http/1"]
+ttl_secs = 240
+
+[presentation]
+badge = "R"
+color = "#e8a94b"
+
+[denied]
+"soil:http" = ["prototype is a simulated UI; the data plane is not wired yet"]
+"soil:vfs" = ["no workspace access in the instrument shell"]

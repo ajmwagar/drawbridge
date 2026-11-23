@@ -12,8 +12,9 @@ wit_bindgen::generate!({
 });
 
 use crate::ajmwagar::drawbridge::bridge;
+use crate::exports::wasi::cli::run::Guest as CliGuest;
 use crate::ajmwagar::drawbridge::types::{
-    Conversation, ConversationKind, Event, Health, Message, Transaction,
+    Channel, Conversation, ConversationKind, Event, Health, Message, Transaction,
 };
 use std::thread::sleep;
 use std::time::Duration;
@@ -21,11 +22,16 @@ use std::time::Duration;
 const HELP: &str = "\
 MeshCore commands (owner only):
 /mesh status
-/mesh help
-
-The Rust fallback still owns advert, name, txpower, pathmode, autoadd,
-channels, contacts and channel key/create until those host calls move into
-the Drawbridge capability.";
+/mesh advert [flood|zerohop]
+/mesh name <name>
+/mesh txpower <0-30>
+/mesh pathmode <0|1|2>
+/mesh autoadd on|off
+/mesh channels
+/mesh contacts
+/mesh channel create <name>
+/mesh channel key <index>
+/mesh channel share <index>";
 
 struct Component;
 
@@ -34,6 +40,18 @@ export!(Component);
 impl Guest for Component {
     fn run(args: Vec<String>) -> Result<String, String> {
         run_loop(&args)
+    }
+}
+
+impl CliGuest for Component {
+    fn run() -> Result<(), ()> {
+        let mut args = crate::wasi::cli::environment::get_arguments();
+        if !args.is_empty() {
+            args.remove(0);
+        }
+        run_loop(&args).map(|_| ()).map_err(|error| {
+            eprintln!("meshcore-bridge: {error}");
+        })
     }
 }
 
@@ -153,22 +171,190 @@ fn is_command(text: &str) -> bool {
 }
 
 fn command(owner: &str, _conversation: &Conversation, text: &str) -> String {
+    match run_command(text) {
+        Ok(response) => response,
+        Err(error) => format!("Command failed: {error}\nOwner: {owner}"),
+    }
+}
+
+fn run_command(text: &str) -> Result<String, String> {
     let text = text.trim();
     let rest = text
         .strip_prefix("/mesh")
         .or_else(|| text.strip_prefix("!mesh"))
         .unwrap_or("")
         .trim();
-    match rest {
-        "" | "help" => HELP.to_string(),
-        "status" => match bridge::status() {
-            Ok(health) => status_line(&health),
-            Err(error) => format!("Command failed: {}", format_error(error)),
+    let mut parts = rest.split_whitespace();
+    let word = parts.next().unwrap_or("help").to_ascii_lowercase();
+    let args: Vec<&str> = parts.collect();
+    match word.as_str() {
+        "" | "help" => Ok(HELP.to_string()),
+        "status" => {
+            let health = bridge::status().map_err(format_error)?;
+            Ok(status_line(&health))
+        }
+        "advert" => {
+            let flood = match args.as_slice() {
+                [] | ["flood"] => true,
+                ["zerohop"] | ["zero-hop"] | ["zero"] => false,
+                _ => return Err("usage: /mesh advert [flood|zerohop]".into()),
+            };
+            bridge::advert(flood).map_err(format_error)?;
+            Ok(if flood {
+                "Flood advert sent.".into()
+            } else {
+                "Zero-hop advert sent.".into()
+            })
+        }
+        "name" => {
+            let name = args.join(" ");
+            validate_name(&name)?;
+            bridge::settings(Some(&name), None, None, None).map_err(format_error)?;
+            Ok(format!("Radio name set to {name}."))
+        }
+        "txpower" | "tx-power" => {
+            let value = parse_i32(args.first(), "usage: /mesh txpower <0-30>")?;
+            if !(0..=30).contains(&value) {
+                return Err("txpower must be 0-30".into());
+            }
+            bridge::settings(None, Some(value), None, None).map_err(format_error)?;
+            Ok(format!("TX power set to {value} dBm."))
+        }
+        "pathmode" | "path-mode" => {
+            let value = parse_u8(args.first(), "usage: /mesh pathmode <0|1|2>")?;
+            if value > 2 {
+                return Err("pathmode must be 0, 1 or 2".into());
+            }
+            bridge::settings(None, None, Some(value), None).map_err(format_error)?;
+            Ok(format!(
+                "Message path hash mode set to {value} ({} bytes).",
+                value + 1
+            ))
+        }
+        "autoadd" | "auto-add" => {
+            let enabled = match args.as_slice() {
+                ["on"] | ["true"] | ["yes"] => true,
+                ["off"] | ["false"] | ["no"] => false,
+                _ => return Err("usage: /mesh autoadd on|off".into()),
+            };
+            bridge::settings(None, None, None, Some(!enabled)).map_err(format_error)?;
+            Ok(format!(
+                "Contact auto-add {}.",
+                if enabled {
+                    "enabled"
+                } else {
+                    "disabled (manual add only)"
+                }
+            ))
+        }
+        "channels" => {
+            let channels = bridge::channels().map_err(format_error)?;
+            Ok(format_channels(&channels))
+        }
+        "contacts" => {
+            let contacts = bridge::contacts().map_err(format_error)?;
+            let chats = contacts.iter().filter(|contact| contact.chat).count();
+            Ok(format!(
+                "{} contacts on the radio; {chats} chat contacts.",
+                contacts.len()
+            ))
+        }
+        "channel" => match args.as_slice() {
+            ["create", rest @ ..] => {
+                let name = rest.join(" ");
+                validate_channel_name(&name)?;
+                let created = bridge::create_channel(&name).map_err(format_error)?;
+                let conversation = Conversation {
+                    kind: ConversationKind::Channel,
+                    id: created.index.to_string(),
+                };
+                let room = match bridge::ensure_room(
+                    &conversation,
+                    &created.name,
+                    Some("meshcore"),
+                ) {
+                    Ok(binding) => binding.room,
+                    Err(error) => format!("(room creation failed: {})", format_error(error)),
+                };
+                Ok(format!(
+                    "Created private channel #{} '{}'.\nKey: {}\nShare: {}\nRoom: {}\nAnyone with this key can read the channel.",
+                    created.index, created.name, created.secret, created.uri, room
+                ))
+            }
+            ["key", index] => {
+                let index = parse_u8(Some(index), "usage: /mesh channel key <index>")?;
+                let channel = bridge::channel_key(index).map_err(format_error)?;
+                Ok(format!(
+                    "Channel #{} '{}'.\nKey: {}\nShare: {}\nTreat this key as a secret.",
+                    channel.index, channel.name, channel.secret, channel.uri
+                ))
+            }
+            ["share", index] => {
+                let index = parse_u8(Some(index), "usage: /mesh channel share <index>")?;
+                let channel = bridge::channel_key(index).map_err(format_error)?;
+                Ok(format!(
+                    "Channel #{} '{}': {}",
+                    channel.index, channel.name, channel.uri
+                ))
+            }
+            _ => Err("usage: /mesh channel create <name> | key <index> | share <index>".into()),
         },
-        other => format!(
-            "`/mesh {other}` is not available in the Spore yet. The Rust fallback still owns it.\nOwner: {owner}"
-        ),
+        other => Err(format!("unknown command {other}; try /mesh help")),
     }
+}
+
+fn validate_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        Err("usage: /mesh name <name>".into())
+    } else if name.len() > 32 || name.chars().any(|character| !character.is_ascii() || character.is_ascii_control()) {
+        Err("name must be 1-32 printable ASCII characters".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_channel_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        Err("usage: /mesh channel create <name>".into())
+    } else if name.starts_with('#') {
+        Err("private channel names must not start with #".into())
+    } else if name.len() > 32 || name.chars().any(|character| !character.is_ascii() || character.is_ascii_control()) {
+        Err("name must be 1-32 printable ASCII characters".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn parse_i32(value: Option<&&str>, usage: &str) -> Result<i32, String> {
+    value
+        .ok_or_else(|| usage.to_string())?
+        .parse()
+        .map_err(|_| usage.to_string())
+}
+
+fn parse_u8(value: Option<&&str>, usage: &str) -> Result<u8, String> {
+    value
+        .ok_or_else(|| usage.to_string())?
+        .parse()
+        .map_err(|_| usage.to_string())
+}
+
+fn format_channels(channels: &[Channel]) -> String {
+    if channels.is_empty() {
+        return "No channels.".into();
+    }
+    let names = channels
+        .iter()
+        .map(|channel| {
+            if channel.name.is_empty() {
+                format!("#{}", channel.index)
+            } else {
+                format!("{} (#{})", channel.name, channel.index)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("Channels: {names}")
 }
 
 fn status_line(health: &Health) -> String {
