@@ -23,6 +23,54 @@ use std::{
 };
 
 const KEY_CHECK: &str = "drawbridge-store-v1";
+const SCHEMA: &str = r#"
+PRAGMA journal_mode=WAL;
+ PRAGMA synchronous=FULL;
+ PRAGMA foreign_keys=ON;
+ CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value BLOB NOT NULL);
+ CREATE TABLE IF NOT EXISTS transactions (txn TEXT PRIMARY KEY, seen_at INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS events (tenant TEXT NOT NULL, event_id TEXT NOT NULL, seen_at INTEGER NOT NULL, PRIMARY KEY(tenant,event_id));
+ CREATE TABLE IF NOT EXISTS bindings (
+   tenant TEXT NOT NULL,
+   key TEXT NOT NULL,
+   room TEXT NOT NULL,
+   ghost TEXT NOT NULL,
+   display TEXT NOT NULL,
+   PRIMARY KEY(tenant,key),
+   UNIQUE(tenant,room)
+ );
+ CREATE TABLE IF NOT EXISTS links (
+   tenant TEXT NOT NULL,
+   local_id TEXT NOT NULL,
+   matrix_id TEXT NOT NULL,
+   direction TEXT NOT NULL,
+   conversation TEXT NOT NULL,
+   part TEXT NOT NULL DEFAULT 'body',
+   created_at INTEGER NOT NULL,
+   PRIMARY KEY(tenant,local_id,matrix_id,part)
+ );
+ CREATE INDEX IF NOT EXISTS links_local ON links(tenant,local_id);
+ CREATE INDEX IF NOT EXISTS links_matrix ON links(tenant,matrix_id);
+ CREATE TABLE IF NOT EXISTS cursors (
+   tenant TEXT NOT NULL,
+   kind TEXT NOT NULL,
+   cursor INTEGER NOT NULL,
+   PRIMARY KEY(tenant,kind)
+ );
+ CREATE TABLE IF NOT EXISTS inbound (
+   id INTEGER PRIMARY KEY,
+   tenant TEXT NOT NULL,
+   event_id TEXT NOT NULL,
+   conversation TEXT NOT NULL,
+   payload BLOB,
+   state TEXT NOT NULL DEFAULT 'pending',
+   attempts INTEGER NOT NULL DEFAULT 0,
+   next_at INTEGER NOT NULL DEFAULT 0,
+   error TEXT,
+   UNIQUE(tenant,event_id)
+ );
+ CREATE INDEX IF NOT EXISTS inbound_pending ON inbound(tenant,state,id);
+"#;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Binding {
@@ -46,6 +94,134 @@ impl Drop for DatabaseLock {
         if let Err(error) = FileExt::unlock(&self.0) {
             tracing::error!(%error, "could not release database process lock");
         }
+    }
+}
+
+/// Low-level database handle for bridges with their own schema and methods.
+///
+/// This owns the single-process lock, WAL/key-check bootstrap and payload
+/// encryption. `Store` is the generic binding/link surface; `Database` is for
+/// bridges such as Rakazo that need their own tables without reimplementing
+/// these invariants.
+pub struct Database {
+    pub conn: Mutex<Connection>,
+    pub cipher: XChaCha20Poly1305,
+    _lock: DatabaseLock,
+}
+
+impl Database {
+    pub fn open(path: &Path, key_b64: &str, key_check: &str, schema: &str) -> Result<Self> {
+        Self::open_mode(path, key_b64, key_check, schema, true)
+    }
+
+    /// Open for a bridge with its own complete schema. Only the metadata table
+    /// needed for the key check is created; the caller's DDL owns the rest.
+    pub fn open_raw(path: &Path, key_b64: &str, key_check: &str) -> Result<Self> {
+        Self::open_mode(path, key_b64, key_check, "", false)
+    }
+
+    fn open_mode(
+        path: &Path,
+        key_b64: &str,
+        key_check: &str,
+        schema: &str,
+        generic: bool,
+    ) -> Result<Self> {
+        let decoded = STANDARD
+            .decode(key_b64)
+            .context("database key must be base64")?;
+        ensure!(decoded.len() == 32, "database key must decode to 32 bytes");
+        let parent = path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        std::fs::create_dir_all(parent)?;
+        let mut options = OpenOptions::new();
+        options.create(true).truncate(false).read(true).write(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let lock = options.open(path.with_extension("lockfile"))?;
+        lock.try_lock_exclusive()
+            .context("another bridge process owns this database")?;
+        let lock = DatabaseLock(lock);
+        let _ = options.open(path)?;
+        let conn = Connection::open(path)?;
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        if generic {
+            conn.execute_batch(SCHEMA)?;
+        } else {
+            conn.execute_batch(
+                "PRAGMA journal_mode=WAL;
+                 PRAGMA synchronous=FULL;
+                 PRAGMA foreign_keys=ON;
+                 CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value BLOB NOT NULL);",
+            )?;
+        }
+        if !schema.trim().is_empty() {
+            conn.execute_batch(schema)
+                .context("application schema failed")?;
+        }
+        let database = Self {
+            conn: Mutex::new(conn),
+            cipher: XChaCha20Poly1305::new_from_slice(&decoded).unwrap(),
+            _lock: lock,
+        };
+        let saved: Option<Vec<u8>> = database
+            .conn
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT value FROM metadata WHERE key='key-check'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(saved) = saved {
+            ensure!(
+                database.decrypt("key-check", &saved)? == key_check.as_bytes(),
+                "incorrect database key"
+            );
+        } else {
+            database.conn.lock().unwrap().execute(
+                "INSERT INTO metadata VALUES ('key-check',?1)",
+                [database.encrypt("key-check", key_check.as_bytes())?],
+            )?;
+        }
+        Ok(database)
+    }
+
+    pub fn encrypt(&self, context: &str, bytes: &[u8]) -> Result<Vec<u8>> {
+        let mut nonce = [0u8; 24];
+        rand::thread_rng().fill_bytes(&mut nonce);
+        let mut out = nonce.to_vec();
+        out.extend(
+            self.cipher
+                .encrypt(
+                    XNonce::from_slice(&nonce),
+                    Payload {
+                        msg: bytes,
+                        aad: context.as_bytes(),
+                    },
+                )
+                .map_err(|_| anyhow::anyhow!("encrypt failed"))?,
+        );
+        Ok(out)
+    }
+
+    pub fn decrypt(&self, context: &str, bytes: &[u8]) -> Result<Vec<u8>> {
+        ensure!(bytes.len() > 24, "ciphertext too short");
+        self.cipher
+            .decrypt(
+                XNonce::from_slice(&bytes[..24]),
+                Payload {
+                    msg: &bytes[24..],
+                    aad: context.as_bytes(),
+                },
+            )
+            .map_err(|_| anyhow::anyhow!("decrypt failed"))
     }
 }
 
@@ -80,54 +256,7 @@ impl Store {
         let _ = options.open(path)?;
         let db = Connection::open(path)?;
         db.busy_timeout(std::time::Duration::from_secs(5))?;
-        db.execute_batch(
-            "PRAGMA journal_mode=WAL;
-             PRAGMA synchronous=FULL;
-             PRAGMA foreign_keys=ON;
-             CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value BLOB NOT NULL);
-             CREATE TABLE IF NOT EXISTS transactions (txn TEXT PRIMARY KEY, seen_at INTEGER NOT NULL);
-             CREATE TABLE IF NOT EXISTS events (tenant TEXT NOT NULL, event_id TEXT NOT NULL, seen_at INTEGER NOT NULL, PRIMARY KEY(tenant,event_id));
-             CREATE TABLE IF NOT EXISTS bindings (
-               tenant TEXT NOT NULL,
-               key TEXT NOT NULL,
-               room TEXT NOT NULL,
-               ghost TEXT NOT NULL,
-               display TEXT NOT NULL,
-               PRIMARY KEY(tenant,key),
-               UNIQUE(tenant,room)
-             );
-             CREATE TABLE IF NOT EXISTS links (
-               tenant TEXT NOT NULL,
-               local_id TEXT NOT NULL,
-               matrix_id TEXT NOT NULL,
-               direction TEXT NOT NULL,
-               conversation TEXT NOT NULL,
-               part TEXT NOT NULL DEFAULT 'body',
-               created_at INTEGER NOT NULL,
-               PRIMARY KEY(tenant,local_id,matrix_id,part)
-             );
-             CREATE INDEX IF NOT EXISTS links_local ON links(tenant,local_id);
-             CREATE INDEX IF NOT EXISTS links_matrix ON links(tenant,matrix_id);
-             CREATE TABLE IF NOT EXISTS cursors (
-               tenant TEXT NOT NULL,
-               kind TEXT NOT NULL,
-               cursor INTEGER NOT NULL,
-               PRIMARY KEY(tenant,kind)
-             );
-             CREATE TABLE IF NOT EXISTS inbound (
-               id INTEGER PRIMARY KEY,
-               tenant TEXT NOT NULL,
-               event_id TEXT NOT NULL,
-               conversation TEXT NOT NULL,
-               payload BLOB,
-               state TEXT NOT NULL DEFAULT 'pending',
-               attempts INTEGER NOT NULL DEFAULT 0,
-               next_at INTEGER NOT NULL DEFAULT 0,
-               error TEXT,
-               UNIQUE(tenant,event_id)
-             );
-             CREATE INDEX IF NOT EXISTS inbound_pending ON inbound(tenant,state,id);",
-        )?;
+        db.execute_batch(SCHEMA)?;
         if !schema.trim().is_empty() {
             db.execute_batch(schema)
                 .context("application schema failed")?;
