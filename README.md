@@ -12,6 +12,17 @@ does not reimplement Matrix.
 Licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for extraction
 provenance.
 
+## Bridges built on Drawbridge
+
+| Bridge | Direction | Status |
+| --- | --- | --- |
+| [meshcore-drawbridge](https://github.com/ajmwagar/meshcore-drawbridge) | MeshCore ↔ Matrix/Beeper | Rust host live; Soil Spore migration next |
+| [rakazo-drawbridge](https://github.com/FuturePresentLabs/rakazo-drawbridge) | Rakazo → Beeper | Rust host live; policy/Soil migration next |
+
+Both are separate repos. Drawbridge owns the shared Rust core and the Soil
+messaging library; each bridge supplies its network adapter and Spore policy.
+See [`docs/bridges.md`](docs/bridges.md) for the port sequence.
+
 ## Crates
 
 | Crate | Purpose |
