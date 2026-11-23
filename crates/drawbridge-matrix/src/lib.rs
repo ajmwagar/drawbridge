@@ -574,6 +574,56 @@ impl MatrixAppService {
     }
 }
 
+/// A user-scoped Matrix client for the few operations an appservice cannot do
+/// for a non-namespace user, such as accepting a room invite on the owner's
+/// behalf. Keep this token in an owner-only secret file and make it opt-in.
+#[derive(Clone)]
+pub struct MatrixUser {
+    client: Client,
+    base: Url,
+    token: HeaderValue,
+}
+
+impl MatrixUser {
+    pub fn new(homeserver: &Url, token: impl AsRef<str>) -> Result<Self> {
+        let mut token = HeaderValue::from_str(&format!("Bearer {}", token.as_ref()))?;
+        token.set_sensitive(true);
+        Ok(Self {
+            client: Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .timeout(std::time::Duration::from_secs(30))
+                .build()?,
+            base: homeserver.clone(),
+            token,
+        })
+    }
+
+    /// Join a room as the user. Matrix `/join` is idempotent, so this is safe
+    /// to repeat when a bridge restarts.
+    pub async fn join(&self, room: &str) -> Result<()> {
+        let mut url = self.base.clone();
+        url.path_segments_mut()
+            .map_err(|_| anyhow::anyhow!("invalid Matrix base URL"))?
+            .pop_if_empty()
+            .extend(["_matrix", "client", "v3", "join", room]);
+        let response = self
+            .client
+            .post(url)
+            .header(AUTHORIZATION, self.token.clone())
+            .json(&json!({}))
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Matrix join failed: {}", e.without_url()))?;
+        let status = response.status();
+        let body: Value = response.json().await.unwrap_or(Value::Null);
+        ensure!(
+            status.is_success() || status == StatusCode::CONFLICT,
+            "Matrix join returned HTTP {status}: {body}"
+        );
+        Ok(())
+    }
+}
+
 fn validate_mxc(uri: &str) -> Result<Url> {
     let parsed = Url::parse(uri)?;
     ensure!(

@@ -12,6 +12,17 @@ does not reimplement Matrix.
 Licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for extraction
 provenance.
 
+## Bridges built on Drawbridge
+
+| Bridge | Direction | Status |
+| --- | --- | --- |
+| [meshcore-drawbridge](https://github.com/ajmwagar/meshcore-drawbridge) | MeshCore ↔ Matrix/Beeper | Rust host live; Soil Spore migration next |
+| [rakazo-drawbridge](https://github.com/FuturePresentLabs/rakazo-drawbridge) | Rakazo → Beeper | Rust host live; policy/Soil migration next |
+
+Both are separate repos. Drawbridge owns the shared Rust core and the Soil
+messaging library; each bridge supplies its network adapter and Spore policy.
+See [`docs/bridges.md`](docs/bridges.md) for the port sequence.
+
 ## Crates
 
 | Crate | Purpose |
@@ -20,6 +31,7 @@ provenance.
 | [`drawbridge-matrix`](crates/drawbridge-matrix) | Application-service client: registration bundle, ghost namespace checks, room creation/recovery, idempotent sends, media, transaction parsing. |
 | [`drawbridge-store`](crates/drawbridge-store) | Single-writer SQLite with WAL, process lock, key check, XChaCha20-Poly1305 payload encryption, generic bindings/links/cursors/dedupe tables. |
 | [`drawbridge-appservice`](crates/drawbridge-appservice) | Axum surface: both application-service transaction paths, constant-time `hs_token` check, body bounds, health/readiness/metrics. |
+| [`drawbridge-host`](crates/drawbridge-host) | Line-delimited JSON host for the Loam sidecar: request/response framing and dispatch behind a `Backend` trait. |
 
 ## Design rules
 
@@ -73,6 +85,10 @@ Matrix, MeshCore HTTP, SQLite and credentials.
 [`docs/soil-plugin.md`](docs/soil-plugin.md) explains the split, why this is a
 native sidecar plugin rather than a pure Wasm plugin, and the open questions
 (blocking `poll`, transaction paging, backfill, multi-tenancy).
+
+[`soil/`](soil) is the Drawbridge-owned Soil library: the WIT binding plus the
+shared `std/messaging` helpers (conversation keys, command parsing, contact
+union). Bridge Spores import this; they do not reimplement the host contract.
 
 ## Build and verify
 

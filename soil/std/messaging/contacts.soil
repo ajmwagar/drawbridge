@@ -1,0 +1,35 @@
+; SPDX-License-Identifier: Apache-2.0
+; Curated contact union: explicit mappings ∪ MeshCore chat contacts ∪ Matrix DMs.
+; Only entries with a MeshCore key can receive MeshCore messages; the rest are
+; display-only until linked. This is the policy layer that keeps a 350-entry
+; radio contact table from becoming 350 bridge rooms.
+
+(defun contacts/entry (name prefix source)
+  (list (list :name name) (list :prefix prefix) (list :source source)))
+
+(defun contacts/key (entry)
+  (let ((prefix (field entry :prefix)))
+    (if (nil? prefix)
+        (str "name:" (field entry :name))
+        (str "prefix:" prefix))))
+
+(defun contacts/member? (key entries)
+  (cond
+    ((nil? entries) #f)
+    ((= key (contacts/key (first entries))) #t)
+    (else (contacts/member? key (rest entries)))))
+
+(defun contacts/union-loop (entries seen out)
+  (cond
+    ((nil? entries) (reverse out))
+    (else
+      (let ((key (contacts/key (first entries))))
+        (if (contacts/member? key seen)
+            (contacts/union-loop (rest entries) seen out)
+            (contacts/union-loop (rest entries) (cons key seen) (cons (first entries) out)))))))
+
+(defun contacts/union (explicit meshcore matrix)
+  (contacts/union-loop (append explicit (append meshcore matrix)) nil nil))
+
+(defun contacts/linked? (entry)
+  (not (nil? (field entry :prefix))))
