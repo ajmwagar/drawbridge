@@ -9,6 +9,27 @@
 (defun rf/fill (value)
   (if (nil? value) "" (rf/esc value)))
 
+(defun rf/category-icon (id)
+  (cond
+    ((= id "weather")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 15a4 4 0 0 1 .6-7.9A5.5 5.5 0 0 1 16 8.5 3.5 3.5 0 0 1 18 15H5Z\"/></svg>")
+    ((= id "emergency")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 3.5 21 20H3L12 3.5Z\"/><path d=\"M12 9v5\"/><path d=\"M12 17v.5\"/></svg>")
+    ((= id "satellite")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m8 8 8 8\"/><path d=\"m5 5 3 3\"/><path d=\"m16 16 3 3\"/><path d=\"M4 13a7 7 0 0 1 7-7\"/><path d=\"M7 16a4 4 0 0 1 4-4\"/></svg>")
+    ((= id "data")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12h3l2-6 4 13 3-9 2 2h4\"/></svg>")
+    ((= id "aviation")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 13h18\"/><path d=\"m8 13 4-7 4 7\"/><path d=\"m8 13 4 7 4-7\"/></svg>")
+    ((= id "marine")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 15c2 2 4 2 6 0s4-2 6 0 4 2 6 0\"/><path d=\"M5 10h14l-2 5H7l-2-5Z\"/></svg>")
+    ((= id "broadcast")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"2\"/><path d=\"M7 7a7 7 0 0 0 0 10\"/><path d=\"M17 7a7 7 0 0 1 0 10\"/></svg>")
+    ((= id "amateur")
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 21V8\"/><path d=\"M8 21h8\"/><path d=\"m12 8-5-5\"/><path d=\"m12 8 5-5\"/></svg>")
+    (else
+     "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 12h16\"/><path d=\"M12 4v16\"/></svg>")))
+
 (defun rf/state-class (device)
   (if (field (field device :initial) :running) "is-rx" "is-idle"))
 
@@ -91,8 +112,9 @@
       "<button type=\"button\" class=\"folder-card\" data-bandmap-category=\""
       (attr-escape (field category :id)) "\">"
       "<span class=\"folder-tab\">" (rf/fill (field category :tab)) "</span>"
-      "<span class=\"folder-head\"><span class=\"folder-name\">"
-      (rf/fill (field category :label)) "</span>"
+      "<span class=\"folder-head\"><span class=\"folder-title\"><span class=\"folder-symbol\">"
+      (rf/category-icon (field category :id)) "</span><span class=\"folder-name\">"
+      (rf/fill (field category :label)) "</span></span>"
       "<span class=\"folder-count\">" (length items) " places</span></span>"
       "<span class=\"folder-intro\">" (rf/fill (field category :intro)) "</span>"
       "<span class=\"folder-samples\">" (rf/fill (string-join (rf/preset-names items) " · ")) "</span>"
@@ -132,7 +154,9 @@
     (str "<section class=\"bandmap-group\" data-bandmap-group=\""
          (attr-escape (field category :id)) "\""
          " hidden>"
-         "<div class=\"bandmap-group-head\"><h3>" (rf/fill (field category :label)) "</h3>"
+         "<div class=\"bandmap-group-head\"><div class=\"bandmap-group-title\"><span class=\"group-symbol\">"
+         (rf/category-icon (field category :id)) "</span><h3>"
+         (rf/fill (field category :label)) "</h3></div>"
          "<p>" (rf/fill (field category :intro)) "</p></div>"
          "<div class=\"bandmap-cards\">" (rf/band-cards items) "</div></section>")))
 
